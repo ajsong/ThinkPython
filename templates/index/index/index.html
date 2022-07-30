@@ -1,0 +1,20 @@
+<table border="1" width="100%">
+	<thead>
+		<tr>
+			<th>ID</th>
+			<th>钱包</th>
+			<th>上级</th>
+			<th>注册时间</th>
+		</tr>
+	</thead>
+	<tbody>
+		{%for g in list%}
+		<tr>
+			<td>{{g.id}}</td>
+			<td>{{g.wallet}}</td>
+			<td>{{g.parent}}</td>
+			<td>{{g.reg_time}}</td>
+		</tr>
+		{%endfor%}
+	</tbody>
+</table>
