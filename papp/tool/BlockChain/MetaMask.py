@@ -1,4 +1,3 @@
-from math import *
 from web3 import Web3
 from web3.middleware import geth_poa_middleware
 from ..Common import *
@@ -11,19 +10,14 @@ class MetaMask(object):
     host = ''
     chainId = 0
     contractPath = ''
-    keyPath = ''
     abi = None
     addr = ''
 
     def __init__(self, host, chainId, contract='contract', addr=''):
         self.host = host
         self.chainId = chainId
-        self.web3 = self.createWeb3(host)
-
         self.contractPath = root_path() + '/contract'
-        self.keyPath = self.contractPath + '/keystore'
         makedir(self.contractPath)
-        makedir(self.keyPath)
         abi = file_get_contents(self.contractPath + '/' + contract + '.abi')
         if abi is None:
             print("Cann't read the abi file")
@@ -36,6 +30,7 @@ class MetaMask(object):
                 exit(0)
         self.addr = Web3.toChecksumAddress(addr.lower())
 
+        self.web3 = self.createWeb3(host)
         self.contract = self.web3.eth.contract(address=self.addr, abi=self.abi)
 
     def createWeb3(self, host, timeout=60):
@@ -102,7 +97,7 @@ class MetaMask(object):
                 exit(0)
             if decimals <= 0:
                 decimals = self.getDecimals()
-            value = Decimal(str(value)) * Decimal('1'+'0'*decimals)
+            value = int(Decimal(str(value)) * Decimal('1'+'0'*decimals))
         return str(value)
 
     # 金额去精度
@@ -140,38 +135,27 @@ class MetaMask(object):
     def hexDec(self, hexStr):
         return int(hexStr, 16)
 
+    # 打印所有方法
+    def functions(self):
+        for func in self.contract.all_functions():
+            print(func)
+
     # 获取gasPrice
     def gasPrice(self, default_gwei=1):
         res = int(self.web3.eth.gas_price)
-        gwei = ceil(float(Decimal(str(res)) / (Decimal(str(default_gwei)) * Decimal('1'+'0'*9))))
+        gwei = int(Decimal(str(res)) / (Decimal(str(default_gwei)) * Decimal('1'+'0'*9)))
         return str(gwei)
 
-    # 执行并估算一个交易需要的gas用量
-    def estimateGas(self, row, default_gas=1800000):
-        arr = {
-            'from': row['from'],
-            'to': row['to'] if 'to' in row.keys() else '',
-            'data': row['data'] if 'data' in row.keys() else '',
-        }
-        try:
-            res = self.web3.eth.estimate_gas(arr)
-            res = int(res)
-            if res < 0:
-                res = default_gas
-        except Exception as ex:
-            print(str(ex))
-            res = default_gas
-        return Decimal(str(ceil(Decimal(str(res)) / Decimal('10000')))) * Decimal('10000') + Decimal('10000')
-
     # 生成矿工费选项
-    def createGas(self, froms, gas=1800000):
+    def createGas(self, froms, gas=1800000, default_gwei=1):
         return {
             'from': Web3.toChecksumAddress(froms.lower()),
-            'gas': self.decHex(gas, True)
+            'gas': self.decHex(gas, True),
+            'gasPrice': self.decHex(self.web3.toWei(self.gasPrice(default_gwei), 'gwei'), True)
         }
 
     # 生成交易数据
-    def transactionData(self, raw, froms, to='', value='', default_gas=1800000, default_gwei=1):
+    def transactionData(self, raw, froms, to=''):
         # 返回指定地址发生的交易数量
         nonce = ''
         try:
@@ -180,21 +164,11 @@ class MetaMask(object):
             print(str(ex))
             exit(0)
         raw['from'] = Web3.toChecksumAddress(froms.lower())
-        if len(to) > 0:
-            raw['to'] = Web3.toChecksumAddress(to.lower())
-        # raw['gasPrice'] = self.decHex(self.web3.toWei(self.gasPrice(default_gwei), 'gwei'), True)
-        # raw['gasLimit'] = self.decHex(int(self.estimateGas(raw, default_gas)), True)
-        if len(str(value)) == 0:
-            value = 0
-        raw['value'] = self.decHex(value, True)
+        if len(to) > 0: raw['to'] = Web3.toChecksumAddress(to.lower())  # 存在to即是走链通道, 不存在即是走合约通道
         raw['chainId'] = self.chainId
         raw['nonce'] = self.decHex(nonce, True)
+        print(raw)
         # write_log(raw, self.contractPath + '/log.txt')
-        # 获取签名
-        file = self.keyPath + '/' + (froms[2:] if froms[0:2] == '0x' else froms) + '.json'
-        if os.path.isfile(file) is False:
-            print('The certificate file does not exist')
-            exit(0)
         credential = self.web3.eth.account.sign_transaction(raw, private_key=ethParam['private_key'])
         return credential.rawTransaction
 
@@ -202,30 +176,13 @@ class MetaMask(object):
     def transfer(self, froms, to, value):
         hashStr = ''
         try:
-            # self.web3.toWei(value, 'ether')
-            value = self.encodeValue(value)
-            raw = self.contract.functions.transfer(Web3.toChecksumAddress(to.lower()), value).build_transaction(self.createGas(froms))
+            raw = self.contract.functions.transfer(Web3.toChecksumAddress(to.lower()), int(self.setValue(value))).build_transaction(self.createGas(froms))
             # 发起裸交易
-            hashStr = self.web3.eth.send_raw_transaction(self.transactionData(raw, froms, Web3.toChecksumAddress(to.lower()), value))
+            hashStr = self.web3.eth.send_raw_transaction(self.transactionData(raw, froms))
             hashStr = self.web3.toHex(hashStr)
         except Exception as ex:
             print(str(ex))
             exit(0)
-        return self.waitForTransaction(hashStr)
-
-    # 循环获取到hash数据为止
-    def waitForTransaction(self, hashStr, host='', timeout=60, interval=1):
-        web3 = self.createWeb3(host) if len(host) > 0 else self.web3
-        now = timestamp()
-        while True:
-            try:
-                res = web3.eth.get_transaction_by_block(hashStr)
-                if res is not None:
-                    break
-                if timestamp() - now > timeout:
-                    break
-                time.sleep(interval)
-            except Exception as ex:
-                print(str(ex))
-                exit(0)
-        return res
+        res = self.web3.eth.wait_for_transaction_receipt(hashStr)
+        return self.web3.toHex(res.get('transactionHash', ''))
+        # return hashStr
