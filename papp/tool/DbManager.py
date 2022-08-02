@@ -49,9 +49,9 @@ class DbManager(object):
 
     def __getattr__(self, name):
         self._curMethods = uncamelize(name).split('_', 1)
-        return self.getAttrArgs
+        return self._getAttrArgs
 
-    def getAttrArgs(self, *args):
+    def _getAttrArgs(self, *args):
         method = getattr(self, self._curMethods[0])
         part = self._curMethods[1]
         if self._curMethods[0] == 'where':
@@ -61,8 +61,6 @@ class DbManager(object):
                 method(args[0], part.replace('_', ' '), args[1])
             elif preg_match(r'^(not_)?null$', part):
                 method(args[0], part.replace('_', ' '))
-            elif preg_match(r'^(year|month|day)$', part):
-                pass
             else:
                 method(part, args[0])
         else:
@@ -327,21 +325,35 @@ class DbManager(object):
 
     # whereTime('add_time', '2022-7-10') //查询add_time等于指定日期的记录
     # whereTime('add_time', '<=', '2022-7-10') //查询add_time小于或等于指定日期的记录
+    # whereTime('add_time', ['2022-7-10', '2022-9-10']) //查询add_time在两个日期内的记录
     def whereTime(self, field, operator, value=''):
         if len(str(value)) == 0:
             value = operator
             operator = '='
+        if type(value) == list and len(value) == 0:
+            print('value is list and len is 0')
+            exit(0)
         if '<' in operator:
+            if type(value) == list:
+                value = value[0]
             timeStamp = strtotime(date('%Y-%m-%d 00:00:00', strtotime(value)))
             where = '`{0}`{1}%s'.format(field, operator)
             self._whereParam.append(str(timeStamp))
         elif '>' in operator:
+            if type(value) == list:
+                value = value[0]
             timeStamp = strtotime(date('%Y-%m-%d 23:59:59', strtotime(value)))
             where = '`{0}`{1}%s'.format(field, operator)
             self._whereParam.append(str(timeStamp))
         else:
-            start = strtotime(date('%Y-%m-%d 00:00:00', strtotime(value)))
-            end = strtotime(date('%Y-%m-%d 23:59:59', strtotime(value)))
+            if type(value) == list and len(value) == 1:
+                value = value[0]
+            if type(value) == list:
+                start = strtotime(date('%Y-%m-%d 00:00:00', strtotime(value[0])))
+                end = strtotime(date('%Y-%m-%d 23:59:59', strtotime(value[1])))
+            else:
+                start = strtotime(date('%Y-%m-%d 00:00:00', strtotime(value)))
+                end = strtotime(date('%Y-%m-%d 23:59:59', strtotime(value)))
             where = '`{0}`>=%s AND `{0}`<=%s'.format(field)
             self._whereParam.extend([str(start), str(end)])
         self._where += " WHERE " + where if len(self._where) == 0 else where

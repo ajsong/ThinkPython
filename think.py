@@ -42,14 +42,33 @@ def createModelFile(param):
     method = '''from ..tool import *
 
 
-class '''+clazz+'''(object):
+class '''+clazz+'''Class(type):
 
     # 数据库操作(自动设定表名)===================================================
+    def __getattr__(self, name):
+        self._curMethods = uncamelize(name).split('_', 1)
+        return self._getAttrArgs
+
+    def _getAttrArgs(self, *args):
+        method = getattr(self, self._curMethods[0])
+        part = self._curMethods[1]
+        if self._curMethods[0] == 'where':
+            if preg_match(r'^(not_)?in$', part):
+                return method(args[0], part.replace('_', ' '), args[1])
+            elif preg_match(r'^(not_)?like$', part):
+                return method(args[0], part.replace('_', ' '), args[1])
+            elif preg_match(r'^(not_)?null$', part):
+                return method(args[0], part.replace('_', ' '))
+            else:
+                return method(part, args[0])
+        else:
+            return method(part, args[0])
+
     @staticmethod
-    def connectname():
+    def _connectname():
         connection = ''
-        if hasattr('''+clazz+''', '_connection_'):
-            connection = getattr('''+clazz+''', '_connection_')
+        if hasattr('''+clazz+'''Class, '_connection_'):
+            connection = getattr('''+clazz+'''Class, '_connection_')
         if len(connection) == 0:
             return Db
         if connection not in connections.keys():
@@ -65,155 +84,159 @@ class '''+clazz+'''(object):
         )
 
     @staticmethod
-    def tablename():
-        if hasattr('''+clazz+''', '_name_'):
-            return getattr('''+clazz+''', '_name_')
+    def _tablename():
+        if hasattr('''+clazz+'''Class, '_name_'):
+            return getattr('''+clazz+'''Class, '_name_')
         file = __file__
         return uncamelize(file.replace(os.path.dirname(file) + '/', '').replace('.py', ''))
 
     @staticmethod
     def alias(alias):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).alias(alias)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).alias(alias)
 
     @staticmethod
     def leftJoin(table, on):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).leftJoin(table, on)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).leftJoin(table, on)
 
     @staticmethod
     def rightJoin(table, on):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).rightJoin(table, on)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).rightJoin(table, on)
 
     @staticmethod
     def innerJoin(table, on):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).innerJoin(table, on)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).innerJoin(table, on)
 
     @staticmethod
     def crossJoin(table):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).crossJoin(table)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).crossJoin(table)
 
     @staticmethod
     def where(where, param1='', param2=''):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).where(where, param1, param2)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).where(where, param1, param2)
 
     @staticmethod
     def whereOr(where, param1='', param2=''):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).whereOr(where, param1, param2)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).whereOr(where, param1, param2)
 
     @staticmethod
     def whereDay(field, value='today'):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).whereDay(field, value)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).whereDay(field, value)
 
     @staticmethod
     def whereTime(field, operator, value=''):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).whereTime(field, operator, value)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).whereTime(field, operator, value)
 
     @staticmethod
     def field(field):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).field(field)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).field(field)
 
     @staticmethod
     def distinct(field):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).distinct(field)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).distinct(field)
 
     @staticmethod
     def group(group):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).group(group)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).group(group)
 
     @staticmethod
     def having(having):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).having(having)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).having(having)
 
     @staticmethod
     def order(field, order=''):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).order(field, order)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).order(field, order)
 
     @staticmethod
     def orderField(field, value):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).orderField(field, value)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).orderField(field, value)
 
     @staticmethod
     def limit(offset, pagesize=-100):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).limit(offset, pagesize)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).limit(offset, pagesize)
 
     @staticmethod
     def page(page, pagesize):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).page(page, pagesize)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).page(page, pagesize)
 
     @staticmethod
     def cache(cache):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).cache(cache)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).cache(cache)
 
     @staticmethod
     def replace(replace=True):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).replace(replace)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).replace(replace)
 
     @staticmethod
     def fetchSql(fetchSql=True):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).fetchSql(fetchSql)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).fetchSql(fetchSql)
 
     @staticmethod
     def inc(field, step=1):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).inc(field, step)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).inc(field, step)
 
     @staticmethod
     def dec(field, step=1):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).dec(field, step)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).dec(field, step)
 
     @staticmethod
     def exist():
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).exist()
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).exist()
 
     @staticmethod
     def count():
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).count()
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).count()
 
     @staticmethod
     def max(field):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).max(field)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).max(field)
 
     @staticmethod
     def min(field):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).min(field)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).min(field)
 
     @staticmethod
     def avg(field):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).avg(field)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).avg(field)
 
     @staticmethod
     def sum(field):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).sum(field)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).sum(field)
 
     @staticmethod
     def groupConcat(field):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).groupConcat(field)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).groupConcat(field)
 
     @staticmethod
     def value(field):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).value(field)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).value(field)
 
     @staticmethod
     def column(field):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).column(field)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).column(field)
 
     @staticmethod
     def find(field=None):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).find(field)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).find(field)
 
     @staticmethod
     def select(field=None):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).select(field)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).select(field)
 
     @staticmethod
     def insert(data):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).insert(data)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).insert(data)
 
     @staticmethod
     def update(data=None):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).update(data)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).update(data)
 
     @staticmethod
     def delete(where=None):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).delete(where)
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).delete(where)
+
+
+class '''+clazz+'''(metaclass='''+clazz+'''Class):
+    pass
 '''
     file_put_contents(filepath, method)
     return filepath

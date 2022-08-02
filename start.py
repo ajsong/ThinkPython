@@ -9,6 +9,7 @@ class WildcardConverter(BaseConverter):
     weight = 200
 
 
+# https://blog.csdn.net/Lin_Hv/article/details/113112527
 # https://www.cnblogs.com/DragonFire/p/9255637.html
 server = Flask(__name__)
 server.url_map.converters['reg'] = WildcardConverter  # 初始化转换器

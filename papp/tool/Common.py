@@ -96,58 +96,63 @@ def strtotime(dateStr, timeStamp=None):
         return timeStamp
     elif mark == 'BEFORE':
         return timeStamp - 60 * 60 * 24 * 2
-    elif mark == 'YESTERDAY':
+    elif (mark == 'YESTERDAY') | (mark == 'LAST DAY'):
         return timeStamp - 60 * 60 * 24
     elif mark == 'TOMORROW':
         return timeStamp + 60 * 60 * 24
-    elif (mark == 'AFTER') | (mark == 'ACQUIRED'):
+    elif (mark == 'ACQUIRED') | (mark == 'AFTER'):
         return timeStamp + 60 * 60 * 24 * 2
-    else:
-        if preg_match(r'^\s*([+-]?\d+)\s*\w+\s*$', mark) is False:
-            if is_date(dateStr):
-                if preg_match(r'^\d{4}-\d{1,2}-\d{1,2}$', dateStr):
-                    timeArray = time.strptime(dateStr, '%Y-%m-%d')
-                else:
-                    timeArray = time.strptime(dateStr, '%Y-%m-%d %H:%M:%S')  # 时间字符串解析为时间元组
-                return int(time.mktime(timeArray))  # 将时间元组转换为时间戳
-            return timeStamp
-        matcher = re.compile(r'^\s*([+-]?\d+)\s*(\w+)\s*$', re.I).match(mark)
-        if matcher is not None:
-            interval = int(matcher.group(1).replace('+', ''))
-            m = matcher.group(2).upper()
-            if (m == 'SECOND') | (m == 'SECONDS'):
-                return timeStamp + interval
-            elif (m == 'MINUTE') | (m == 'MINUTES'):
-                return timeStamp + interval * 60
-            elif (m == 'HOUR') | (m == 'HOURS'):
-                return timeStamp + interval * 60 * 60
-            elif (m == 'DAY') | (m == 'DAYS'):
-                return timeStamp + interval * 60 * 60 * 24
-            elif (m == 'WEEK') | (m == 'WEEKS'):
-                return timeStamp + interval * 60 * 60 * 24 * 7
-            elif (m == 'MONTH') | (m == 'MONTHS'):
-                timeDate = datetime.date(int(date('%Y', timeStamp)), int(date('%m', timeStamp)), int(date('%d', timeStamp)))
-                year = timeDate.year
-                month = timeDate.month
-                for _ in range(abs(interval)):
-                    if interval < 0:
-                        if month == 1:
-                            year -= 1
-                            month = 12
-                        else:
-                            month -= 1
+    elif mark == 'LAST WEEK':
+        mark = '-1 WEEK'
+    elif mark == 'LAST MONTH':
+        mark = '-1 MONTH'
+    elif mark == 'LAST YEAR':
+        mark = '-1 YEAR'
+    if preg_match(r'^\s*([+-]?\d+)\s*\w+\s*$', mark) is False:
+        if is_date(dateStr):
+            if preg_match(r'^\d{4}-\d{1,2}-\d{1,2}$', dateStr):
+                timeArray = time.strptime(dateStr, '%Y-%m-%d')
+            else:
+                timeArray = time.strptime(dateStr, '%Y-%m-%d %H:%M:%S')  # 时间字符串解析为时间元组
+            return int(time.mktime(timeArray))  # 将时间元组转换为时间戳
+        return timeStamp
+    matcher = re.compile(r'^\s*([+-]?\d+)\s*(\w+)\s*$', re.I).match(mark)
+    if matcher is not None:
+        interval = int(matcher.group(1).replace('+', ''))
+        m = matcher.group(2).upper()
+        if (m == 'SECOND') | (m == 'SECONDS'):
+            return timeStamp + interval
+        elif (m == 'MINUTE') | (m == 'MINUTES'):
+            return timeStamp + interval * 60
+        elif (m == 'HOUR') | (m == 'HOURS'):
+            return timeStamp + interval * 60 * 60
+        elif (m == 'DAY') | (m == 'DAYS'):
+            return timeStamp + interval * 60 * 60 * 24
+        elif (m == 'WEEK') | (m == 'WEEKS'):
+            return timeStamp + interval * 60 * 60 * 24 * 7
+        elif (m == 'MONTH') | (m == 'MONTHS'):
+            timeDate = datetime.date(int(date('%Y', timeStamp)), int(date('%m', timeStamp)), int(date('%d', timeStamp)))
+            year = timeDate.year
+            month = timeDate.month
+            for _ in range(abs(interval)):
+                if interval < 0:
+                    if month == 1:
+                        year -= 1
+                        month = 12
                     else:
-                        if month == 12:
-                            year += 1
-                            month = 1
-                        else:
-                            month += 1
-                timeArray = time.strptime(date(str(year)+'-'+str(month)+'-%d %H:%M:%S', timeStamp), '%Y-%m-%d %H:%M:%S')
-                return int(time.mktime(timeArray))
-            elif (m == 'YEAR') | (m == 'YEARS'):
-                timeDate = datetime.date(int(date('%Y', timeStamp)), int(date('%m', timeStamp)), int(date('%d', timeStamp)))
-                timeArray = time.strptime(date(str(int(timeDate.strftime("%Y")) + interval)+'-%m-%d %H:%M:%S', timeStamp), '%Y-%m-%d %H:%M:%S')
-                return int(time.mktime(timeArray))
+                        month -= 1
+                else:
+                    if month == 12:
+                        year += 1
+                        month = 1
+                    else:
+                        month += 1
+            timeArray = time.strptime(date(str(year)+'-'+str(month)+'-%d %H:%M:%S', timeStamp), '%Y-%m-%d %H:%M:%S')
+            return int(time.mktime(timeArray))
+        elif (m == 'YEAR') | (m == 'YEARS'):
+            timeDate = datetime.date(int(date('%Y', timeStamp)), int(date('%m', timeStamp)), int(date('%d', timeStamp)))
+            timeArray = time.strptime(date(str(int(timeDate.strftime("%Y")) + interval)+'-%m-%d %H:%M:%S', timeStamp), '%Y-%m-%d %H:%M:%S')
+            return int(time.mktime(timeArray))
 
 
 # json_encode
