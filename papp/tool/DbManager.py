@@ -343,7 +343,7 @@ class DbManager(object):
             start = strtotime(date('%Y-%m-%d 00:00:00', strtotime(value)))
             end = strtotime(date('%Y-%m-%d 23:59:59', strtotime(value)))
             where = '`{0}`>=%s AND `{0}`<=%s'.format(field)
-            self._whereParam += [str(start), str(end)]
+            self._whereParam.extend([str(start), str(end)])
         self._where += " WHERE " + where if len(self._where) == 0 else where
         return self
 
