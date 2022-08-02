@@ -110,8 +110,7 @@ def strtotime(dateStr, timeStamp=None):
                 else:
                     timeArray = time.strptime(dateStr, '%Y-%m-%d %H:%M:%S')  # 时间字符串解析为时间元组
                 return int(time.mktime(timeArray))  # 将时间元组转换为时间戳
-            else:
-                return timeStamp
+            return timeStamp
         matcher = re.compile(r'^\s*([+-]?\d+)\s*(\w+)\s*$', re.I).match(mark)
         if matcher is not None:
             interval = int(matcher.group(1).replace('+', ''))
