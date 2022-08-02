@@ -7,8 +7,8 @@ class Member(object):
     @staticmethod
     def connectname():
         connection = ''
-        if hasattr(Member, '__connection__'):
-            connection = getattr(Member, '__connection__')
+        if hasattr(Member, '_connection_'):
+            connection = getattr(Member, '_connection_')
         if len(connection) == 0:
             return Db
         if connection not in connections.keys():
@@ -25,8 +25,8 @@ class Member(object):
 
     @staticmethod
     def tablename():
-        if hasattr(Member, '__name__'):
-            return getattr(Member, '__name__')
+        if hasattr(Member, '_name_'):
+            return getattr(Member, '_name_')
         file = __file__
         return uncamelize(file.replace(os.path.dirname(file) + '/', '').replace('.py', ''))
 
@@ -59,12 +59,12 @@ class Member(object):
         return Member.connectname().name(Member.tablename()).whereOr(where, param1, param2)
 
     @staticmethod
-    def whereDay(field, mark):
-        return Member.connectname().name(Member.tablename()).whereDay(field, mark)
+    def whereDay(field, value='today'):
+        return Member.connectname().name(Member.tablename()).whereDay(field, value)
 
     @staticmethod
-    def whereTime(field, value):
-        return Member.connectname().name(Member.tablename()).whereTime(field, value)
+    def whereTime(field, operator, value=''):
+        return Member.connectname().name(Member.tablename()).whereTime(field, operator, value)
 
     @staticmethod
     def field(field):

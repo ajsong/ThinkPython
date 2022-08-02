@@ -1,4 +1,4 @@
-# Developed by @mario 1.4.20220730
+# Developed by @mario 1.5.20220802
 import decimal
 import hashlib
 import json
@@ -8,6 +8,7 @@ import os
 import random
 import re
 import time
+import datetime
 from decimal import *
 from pathlib import Path
 import requests
@@ -68,24 +69,86 @@ def file_put_contents(file, content='', mode='w'):
     fo.close()
 
 
-# 字符串日期转时间戳
-def strtotime(dateStr):
-    timeArray = time.strptime(dateStr, "%Y-%m-%d %H:%M:%S")  # 时间字符串解析为时间元组
-    return int(time.mktime(timeArray))  # 将时间元组转换为时间戳
-
-
 # 当前时间戳
 def timestamp():
     return int(time.time())
 
 
 # 时间戳转日期字符串
-def date(formatStr="%Y-%m-%d %H:%M:%S", timeStamp=None):
+def date(formatStr='%Y-%m-%d %H:%M:%S', timeStamp=None):
     if timeStamp is None:
         timeStamp = time.localtime()
     else:
-        timeStamp = time.localtime(timeStamp)
+        timeStamp = time.localtime(int(timeStamp))
     return time.strftime(formatStr, timeStamp)
+
+
+# 字符串日期转时间戳
+# https://www.runoob.com/python3/python3-date-time.html
+def strtotime(dateStr, timeStamp=None):
+    if type(dateStr) == int:
+        return dateStr
+    if timeStamp is None:
+        timeStamp = timestamp()
+    timeStamp = int(timeStamp)
+    mark = dateStr.upper()
+    if mark == 'TODAY':
+        return timeStamp
+    elif mark == 'BEFORE':
+        return timeStamp - 60 * 60 * 24 * 2
+    elif mark == 'YESTERDAY':
+        return timeStamp - 60 * 60 * 24
+    elif mark == 'TOMORROW':
+        return timeStamp + 60 * 60 * 24
+    elif (mark == 'AFTER') | (mark == 'ACQUIRED'):
+        return timeStamp + 60 * 60 * 24 * 2
+    else:
+        if preg_match(r'^\s*([+-]?\d+)\s*\w+\s*$', mark) is False:
+            if is_date(dateStr):
+                if preg_match(r'^\d{4}-\d{1,2}-\d{1,2}$', dateStr):
+                    timeArray = time.strptime(dateStr, '%Y-%m-%d')
+                else:
+                    timeArray = time.strptime(dateStr, '%Y-%m-%d %H:%M:%S')  # 时间字符串解析为时间元组
+                return int(time.mktime(timeArray))  # 将时间元组转换为时间戳
+            else:
+                return timeStamp
+        matcher = re.compile(r'^\s*([+-]?\d+)\s*(\w+)\s*$', re.I).match(mark)
+        if matcher is not None:
+            interval = int(matcher.group(1).replace('+', ''))
+            m = matcher.group(2).upper()
+            if (m == 'SECOND') | (m == 'SECONDS'):
+                return timeStamp + interval
+            elif (m == 'MINUTE') | (m == 'MINUTES'):
+                return timeStamp + interval * 60
+            elif (m == 'HOUR') | (m == 'HOURS'):
+                return timeStamp + interval * 60 * 60
+            elif (m == 'DAY') | (m == 'DAYS'):
+                return timeStamp + interval * 60 * 60 * 24
+            elif (m == 'WEEK') | (m == 'WEEKS'):
+                return timeStamp + interval * 60 * 60 * 24 * 7
+            elif (m == 'MONTH') | (m == 'MONTHS'):
+                timeDate = datetime.date(int(date('%Y', timeStamp)), int(date('%m', timeStamp)), int(date('%d', timeStamp)))
+                year = timeDate.year
+                month = timeDate.month
+                for _ in range(abs(interval)):
+                    if interval < 0:
+                        if month == 1:
+                            year -= 1
+                            month = 12
+                        else:
+                            month -= 1
+                    else:
+                        if month == 12:
+                            year += 1
+                            month = 1
+                        else:
+                            month += 1
+                timeArray = time.strptime(date(str(year)+'-'+str(month)+'-%d %H:%M:%S', timeStamp), '%Y-%m-%d %H:%M:%S')
+                return int(time.mktime(timeArray))
+            elif (m == 'YEAR') | (m == 'YEARS'):
+                timeDate = datetime.date(int(date('%Y', timeStamp)), int(date('%m', timeStamp)), int(date('%d', timeStamp)))
+                timeArray = time.strptime(date(str(int(timeDate.strftime("%Y")) + interval)+'-%m-%d %H:%M:%S', timeStamp), '%Y-%m-%d %H:%M:%S')
+                return int(time.mktime(timeArray))
 
 
 # json_encode
@@ -182,7 +245,7 @@ def is_email(email):
 
 # 验证日期
 def is_date(dateStr):
-    return re.compile(r'^(?:(?!0000)\d{4}[/-](?:(?:0?[1-9]|1[0-2])[/-](?:0?[1-9]|1\d|2[0-8])|(?:0?[13-9]|1[0-2])[/-](?:29|30)|(?:0?[13578]|1[02])[/-]31)|(?:\d{2}(?:0[48]|[2468][048]|[13579][26])|(?:0[48]|[2468][048]|[13579][26])00)[/-]0?2[/-]29)$').match(str(dateStr)) is not None
+    return re.compile(r'^\d{4}-\d{1,2}-\d{1,2}( \d{1,2}:\d{1,2}:\d{1,2})?$').match(str(dateStr)) is not None
 
 
 # 生成随机字母数字

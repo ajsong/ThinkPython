@@ -1,4 +1,4 @@
-# Developed by @mario 1.0.20220730
+# Developed by @mario 1.0.20220802
 from optparse import OptionParser
 from papp.tool import *
 
@@ -48,8 +48,8 @@ class '''+clazz+'''(object):
     @staticmethod
     def connectname():
         connection = ''
-        if hasattr('''+clazz+''', '__connection__'):
-            connection = getattr('''+clazz+''', '__connection__')
+        if hasattr('''+clazz+''', '_connection_'):
+            connection = getattr('''+clazz+''', '_connection_')
         if len(connection) == 0:
             return Db
         if connection not in connections.keys():
@@ -66,8 +66,8 @@ class '''+clazz+'''(object):
 
     @staticmethod
     def tablename():
-        if hasattr('''+clazz+''', '__name__'):
-            return getattr('''+clazz+''', '__name__')
+        if hasattr('''+clazz+''', '_name_'):
+            return getattr('''+clazz+''', '_name_')
         file = __file__
         return uncamelize(file.replace(os.path.dirname(file) + '/', '').replace('.py', ''))
 
@@ -100,12 +100,12 @@ class '''+clazz+'''(object):
         return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).whereOr(where, param1, param2)
 
     @staticmethod
-    def whereDay(field, mark):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).whereDay(field, mark)
+    def whereDay(field, value='today'):
+        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).whereDay(field, value)
 
     @staticmethod
-    def whereTime(field, value):
-        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).whereTime(field, value)
+    def whereTime(field, operator, value=''):
+        return '''+clazz+'''.connectname().name('''+clazz+'''.tablename()).whereTime(field, operator, value)
 
     @staticmethod
     def field(field):

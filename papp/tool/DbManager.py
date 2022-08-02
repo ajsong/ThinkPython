@@ -27,7 +27,7 @@ class DbManager(object):
 
     # 构造函数
     def __init__(self, **kwargs):
-        self.version = "1.5.20220729"
+        self.version = "1.6.20220802"
         self.conn = None
         self.cur = None
         self.prefix = kwargs.get("prefix", "")
@@ -211,7 +211,7 @@ class DbManager(object):
 
     def whereAdapter(self, where, andOr=" AND ", param1="", param2=""):
         _where = ""
-        if re.compile(r'^\d+$').match(str(where)):
+        if re.compile(r'^\d+$').match(str(where)) is not None:
             _where = "{}`id`=%s".format(andOr)
             self._whereParam.append(where)
         elif type(where) == list:
@@ -318,6 +318,33 @@ class DbManager(object):
                             self._whereParam.append(str(value))
         if len(_where) > 0:
             self._where += " WHERE " + _where.lstrip(andOr) if len(self._where) == 0 else _where
+        return self
+
+    # 时间对比查询
+    # whereDay('add_time', 'today') //查询add_time今天的记录
+    def whereDay(self, field, value='today'):
+        return self.whereTime(field, '=', date('%Y-%m-%d %H:%M:%S', strtotime(value)))
+
+    # whereTime('add_time', '2022-7-10') //查询add_time等于指定日期的记录
+    # whereTime('add_time', '<=', '2022-7-10') //查询add_time小于或等于指定日期的记录
+    def whereTime(self, field, operator, value=''):
+        if len(str(value)) == 0:
+            value = operator
+            operator = '='
+        if '<' in operator:
+            timeStamp = strtotime(date('%Y-%m-%d 00:00:00', strtotime(value)))
+            where = '`{0}`{1}%s'.format(field, operator)
+            self._whereParam.append(str(timeStamp))
+        elif '>' in operator:
+            timeStamp = strtotime(date('%Y-%m-%d 23:59:59', strtotime(value)))
+            where = '`{0}`{1}%s'.format(field, operator)
+            self._whereParam.append(str(timeStamp))
+        else:
+            start = strtotime(date('%Y-%m-%d 00:00:00', strtotime(value)))
+            end = strtotime(date('%Y-%m-%d 23:59:59', strtotime(value)))
+            where = '`{0}`>=%s AND `{0}`<=%s'.format(field)
+            self._whereParam += [str(start), str(end)]
+        self._where += " WHERE " + where if len(self._where) == 0 else where
         return self
 
     # 字段
