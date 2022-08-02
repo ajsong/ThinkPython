@@ -168,8 +168,8 @@ def json_decode(jsonStr):
 # json美化打印
 def format_json(obj):
     if type(obj) == str:
-        obj = json.loads(obj)
-    print(json.dumps(obj, indent=4, ensure_ascii=False, sort_keys=True))
+        obj = json_decode(obj)
+    print(json.dumps(obj, indent=4, ensure_ascii=False, sort_keys=True, cls=JSONDecimalEncoder))
 
 
 # md5
