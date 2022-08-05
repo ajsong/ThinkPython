@@ -55,7 +55,7 @@ class Request(object):
             storage = request.files.get(name, None)
             if storage is None:
                 return None
-            path = '/uploads' + default + date('/%Y/%m/%d')
+            path = '/uploads/' + default + date('/%Y/%m/%d')
             makedir(path)
             filepath = path + '/' + generate_sn() + '.' + storage.filename.split('.')[-1]
             storage.save(root_path() + filepath)

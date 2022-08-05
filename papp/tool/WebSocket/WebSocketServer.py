@@ -30,19 +30,19 @@ class HTTPRequest(BaseHTTPRequestHandler):
 _VALID_STATUS_CODES = [1000, 1001, 1002, 1003, 1007, 1008, 1009, 1010, 1011, 3000, 3999, 4000, 4999]
 
 HANDSHAKE_STR = (
-    "HTTP/1.1 101 Switching Protocols\r\n"
-    "Upgrade: WebSocket\r\n"
-    "Connection: Upgrade\r\n"
-    "Sec-WebSocket-Accept: %(acceptstr)s\r\n\r\n"
+    'HTTP/1.1 101 Switching Protocols\r\n'
+    'Upgrade: WebSocket\r\n'
+    'Connection: Upgrade\r\n'
+    'Sec-WebSocket-Accept: %(acceptstr)s\r\n\r\n'
 )
 
 FAILED_HANDSHAKE_STR = (
-    "HTTP/1.1 426 Upgrade Required\r\n"
-    "Upgrade: WebSocket\r\n"
-    "Connection: Upgrade\r\n"
-    "Sec-WebSocket-Version: 13\r\n"
-    "Content-Type: text/plain\r\n\r\n"
-    "This service requires use of the WebSocket protocol\r\n"
+    'HTTP/1.1 426 Upgrade Required\r\n'
+    'Upgrade: WebSocket\r\n'
+    'Connection: Upgrade\r\n'
+    'Sec-WebSocket-Version: 13\r\n'
+    'Content-Type: text/plain\r\n\r\n'
+    'This service requires use of the WebSocket protocol\r\n'
 )
 
 GUID_STR = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
@@ -269,7 +269,7 @@ class WebSocket(object):
         else:
             data = self.client.recv(16384)
             if not data:
-                raise Exception("remote socket closed")
+                raise Exception('remote socket closed')
 
             for d in data:
                 self._parseMessage(d)
@@ -285,7 +285,7 @@ class WebSocket(object):
         try:
             if self.closed is False:
                 close_msg = bytearray()
-                close_msg.extend(struct.pack("!H", status))
+                close_msg.extend(struct.pack('!H', status))
                 if _check_unicode(reason):
                     close_msg.extend(reason.encode('utf-8'))
                 else:
@@ -389,12 +389,12 @@ class WebSocket(object):
         elif 126 <= length <= 65535:
             b2 |= 126
             payload.append(b2)
-            payload.extend(struct.pack("!H", length))
+            payload.extend(struct.pack('!H', length))
 
         else:
             b2 |= 127
             payload.append(b2)
-            payload.extend(struct.pack("!Q", length))
+            payload.extend(struct.pack('!Q', length))
 
         if length > 0:
             payload.extend(data)

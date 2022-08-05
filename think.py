@@ -1,5 +1,5 @@
-# Developed by @mario 1.0.20220802
-from optparse import OptionParser
+# Developed by @mario 1.1.20220803
+from argparse import ArgumentParser
 from papp.tool import *
 
 
@@ -15,7 +15,7 @@ def createControllerFile(param):
         file_put_contents(path + '/__init__.py')
     filepath = path + '/' + clazz + '.py'
     if file_exist(filepath):
-        print("Controller:\033[31m" + filepath + "\033[m already exist.\n")
+        print('Controller:\033[31m' + filepath + '\033[m already exist.\n')
         return None
     method = '''from .Core import *
 
@@ -37,7 +37,7 @@ def createModelFile(param):
         file_put_contents(path + '/__init__.py')
     filepath = path + '/' + clazz + '.py'
     if file_exist(filepath):
-        print("Model:\033[31m" + filepath + "\033[m already exist.\n")
+        print('Model:\033[31m' + filepath + '\033[m already exist.\n')
         return None
     method = '''from ..tool import *
 
@@ -46,23 +46,25 @@ class '''+clazz+'''Class(type):
 
     # 数据库操作(自动设定表名)===================================================
     def __getattr__(self, name):
-        self._curMethods = uncamelize(name).split('_', 1)
-        return self._getAttrArgs
+        curMethods = uncamelize(name).split('_', 1)
 
-    def _getAttrArgs(self, *args):
-        method = getattr(self, self._curMethods[0])
-        part = self._curMethods[1]
-        if self._curMethods[0] == 'where':
-            if preg_match(r'^(not_)?in$', part):
-                return method(args[0], part.replace('_', ' '), args[1])
-            elif preg_match(r'^(not_)?like$', part):
-                return method(args[0], part.replace('_', ' '), args[1])
-            elif preg_match(r'^(not_)?null$', part):
-                return method(args[0], part.replace('_', ' '))
+        def fn(*args):
+            method = getattr(self, curMethods[0])
+            part = curMethods[1]
+
+            if curMethods[0] == 'where':
+                if preg_match(r'^(not_)?in$', part):
+                    return method(args[0], part.replace('_', ' '), args[1])
+                elif preg_match(r'^(not_)?like$', part):
+                    return method(args[0], part.replace('_', ' '), args[1])
+                elif preg_match(r'^(not_)?null$', part):
+                    return method(args[0], part.replace('_', ' '))
+                else:
+                    return method(part, args[0])
             else:
                 return method(part, args[0])
-        else:
-            return method(part, args[0])
+
+        return fn
 
     @staticmethod
     def _connectname():
@@ -75,7 +77,7 @@ class '''+clazz+'''Class(type):
             raise Exception('Connections have no parameter: ' + connection)
         return DbManager(
             host=connections[connection].get('host', 'localhost'),
-            post=connections[connection].get("port", 3306),
+            post=connections[connection].get('port', 3306),
             user=connections[connection].get('user', 'root'),
             password=connections[connection].get('password', ''),
             database=connections[connection].get('database', ''),
@@ -243,38 +245,37 @@ class '''+clazz+'''(metaclass='''+clazz+'''Class):
 
 
 if __name__ == '__main__':
+    parser = ArgumentParser()  # https://www.jb51.net/article/179189.htm
+    parser.add_argument('--make:controller', type=str, dest='controller', help='Create a new resource controller class')
+    parser.add_argument('--make:model', type=str, dest='model', help='Create a new model class')
+    args = parser.parse_args()
+
+    if args.controller is not None:
+        arguments = args.controller.split(',')
+        for arg in arguments:
+            res = createControllerFile(arg)
+            if res is not None:
+                print('Controller:\033[32m' + res + '\033[m created successfully.')
+        print()
+        exit(0)
+
+    if args.model is not None:
+        arguments = args.model.split(',')
+        for arg in arguments:
+            res = createModelFile(camelize(arg))
+            if res is not None:
+                print('Model:\033[32m' + res + '\033[m created successfully.')
+        print()
+        exit(0)
 
     file = __file__
     file = file.replace(os.path.dirname(file) + '/', '')
     usage = '''
-  python %prog [commands]
+\033[33mUsage:\033[m
+  python '''+file+''' [commands]
 
 \033[33mAvailable commands:\033[m
- \033[33mmake\033[m
-  \033[32m--controller\033[m   Create a new resource controller class
-  \033[32m--model\033[m        Create a new model class'''
-
-    parser = OptionParser(usage=usage, version="%prog 1.0")
-    parser.add_option("--controller", type="string", dest="controller", help="Create a new resource controller class")
-    parser.add_option("--model", type="string", dest="model", help="Create a new model class")
-    (options, args) = parser.parse_args()
-
-    if options.controller is not None:
-        arguments = options.controller.split(',')
-        for arg in arguments:
-            res = createControllerFile(arg)
-            if res is not None:
-                print("Controller:\033[32m" + res + "\033[m created successfully.")
-        print()
-        exit(0)
-
-    if options.model is not None:
-        arguments = options.model.split(',')
-        for arg in arguments:
-            res = createModelFile(camelize(arg))
-            if res is not None:
-                print("Model:\033[32m" + res + "\033[m created successfully.")
-        print()
-        exit(0)
-
-    print('\n\033[33mUsage:\033[m' + usage.replace('%prog', file) + '\n')
+  \033[32m--make:controller\033[m   Create a new resource controller class
+  \033[32m--make:model\033[m        Create a new model class
+'''
+    print(usage)

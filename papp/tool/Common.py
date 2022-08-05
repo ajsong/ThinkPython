@@ -1,4 +1,5 @@
-# Developed by @mario 1.5.20220802
+# Developed by @mario 1.5.20220805
+import base64
 import decimal
 import hashlib
 import json
@@ -9,18 +10,19 @@ import random
 import re
 import time
 import datetime
+from urllib import parse
 from decimal import *
 from pathlib import Path
 import requests
 from ..Config import *
 
 
-# 修复json_encode的时候对象内有Decimal值报错的问题
+# 修复json.dumps的时候对象内有Decimal值报错的问题
 class JSONDecimalEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, decimal.Decimal):
-            return float(o)
-        super(JSONDecimalEncoder, self).default(o)
+    def default(self, obj):
+        if isinstance(obj, decimal.Decimal):
+            return float(obj)
+        super(JSONDecimalEncoder, self).default(obj)
 
 
 # 获取根目录
@@ -93,7 +95,7 @@ def strtotime(dateStr, timeStamp=None):
     timeStamp = int(timeStamp)
     mark = dateStr.upper()
     if mark == 'TODAY':
-        return timeStamp
+        return timestamp()
     elif mark == 'BEFORE':
         return timeStamp - 60 * 60 * 24 * 2
     elif (mark == 'YESTERDAY') | (mark == 'LAST DAY'):
@@ -151,8 +153,21 @@ def strtotime(dateStr, timeStamp=None):
             return int(time.mktime(timeArray))
         elif (m == 'YEAR') | (m == 'YEARS'):
             timeDate = datetime.date(int(date('%Y', timeStamp)), int(date('%m', timeStamp)), int(date('%d', timeStamp)))
-            timeArray = time.strptime(date(str(int(timeDate.strftime("%Y")) + interval)+'-%m-%d %H:%M:%S', timeStamp), '%Y-%m-%d %H:%M:%S')
+            timeArray = time.strptime(date(str(int(timeDate.strftime('%Y')) + interval)+'-%m-%d %H:%M:%S', timeStamp), '%Y-%m-%d %H:%M:%S')
             return int(time.mktime(timeArray))
+
+
+# md5
+def md5(string):
+    obj = hashlib.md5()
+    obj.update(string.encode('utf-8'))
+    return obj.hexdigest()
+
+
+# sha1
+def sha1(string):
+    sha = hashlib.sha1(string.encode('utf-8'))
+    return sha.hexdigest()
 
 
 # json_encode
@@ -177,17 +192,24 @@ def format_json(obj):
     print(json.dumps(obj, indent=4, ensure_ascii=False, sort_keys=True, cls=JSONDecimalEncoder))
 
 
-# md5
-def md5(string):
-    obj = hashlib.md5()
-    obj.update(string.encode("utf-8"))
-    return obj.hexdigest()
+# base64_encode
+def base64_encode(string):
+    return base64.b64encode(string.encode('utf-8')).decode('utf-8')
 
 
-# sha1
-def sha1(string):
-    sha = hashlib.sha1(string.encode('utf-8'))
-    return sha.hexdigest()
+# base64_decode
+def base64_decode(string):
+    return base64.b64decode(string).decode('utf-8')
+
+
+# url_encode
+def url_encode(string):
+    return parse.quote(string, safe='', encoding=None, errors=None)
+
+
+# url_decode
+def url_decode(string):
+    return parse.unquote(string, encoding='utf-8', errors='replace')
 
 
 # 文件是否存在
@@ -252,6 +274,13 @@ def is_date(dateStr):
     return re.compile(r'^\d{4}-\d{1,2}-\d{1,2}( \d{1,2}:\d{1,2}:\d{1,2})?$').match(str(dateStr)) is not None
 
 
+# 获取ip
+def ip():
+    res = requests.get('https://myip.ipip.net', timeout=5).text
+    res = re.findall(r'(\d+\.\d+\.\d+\.\d+)', res)
+    return res[0] if res else ''
+
+
 # 生成随机字母数字
 def random_str(length=4):
     string = ''
@@ -273,21 +302,21 @@ def uncamelize(value, delimiter='_'):
 
 
 # 写log文件
-def write_log(content, filename="log.txt"):
+def write_log(content, filename='log.txt'):
     path = runtime_path()
     if not Path(path).is_dir():
         os.makedirs(path)
-    file = Path("%s/%s" % (path, filename))
-    if type(content) != str and type(content) != int and type(content) != float:
-        content = json.dumps(content)
-    fo = open("%s" % file, "a+")
-    fo.write(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + "\n" + content + "\n\n")
+    file = Path('%s/%s' % (path, filename))
+    if type(content) != str and type(content) != int and type(content) != float and type(content) != complex and type(content) != bool:
+        content = json_encode(content)
+    fo = open('%s' % file, 'a+')
+    fo.write(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()) + '\n' + content + '\n\n')
     fo.close()
 
 
 # 写error文件
 def write_error(content):
-    write_log(content, "error.txt")
+    write_log(content, 'error.txt')
 
 
 # 网络请求
@@ -299,16 +328,20 @@ def requestUrl(method, url, params=None, returnJson=False, postJson=False, heade
         headers = {}
     if postJson:
         headers['Content-type'] = 'application/json;charset=UTF-8'
-    if method == 'GET':
-        res = requests.get(url=url, params=params, headers=headers)
+    if method == 'FILE':
+        # params = {'image': open('test.jpg', 'rb')}
+        # params = {'file': ('test.jpg', open('test.jpg', 'rb'), 'image/jpeg'), 'dir': (None, 'pic')}
+        res = requests.post(url=url, files=params, headers=headers, timeout=10)
+    elif method == 'POST':
+        res = requests.post(url=url, data=params, headers=headers, timeout=5)
     else:
-        res = requests.post(url=url, data=params, headers=headers)
+        res = requests.get(url=url, params=params, headers=headers, timeout=5)
     if res.status_code == 301 or res.status_code == 302:
         return requestUrl(method, url, params, returnJson, postJson, headers)
     if res is None:
         return None
     if returnJson:
-        return json.loads(res.text)
+        return json_decode(res.text)
     return res.text
 
 

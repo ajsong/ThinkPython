@@ -19,7 +19,7 @@ class WebsocketClient(object):
             self.message_callback(message)
 
     def on_error(self, error):
-        print("Client error:\n", error)
+        print('Client error:\n', error)
 
     def on_close(self, ws):
         self.ws.close()

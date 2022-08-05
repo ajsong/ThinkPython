@@ -1,5 +1,6 @@
 from flask import Flask, render_template
 import logging
+from argparse import ArgumentParser
 from papp.tool import *
 from werkzeug.routing import BaseConverter
 
@@ -51,5 +52,12 @@ def index(path):
 # print(str(res, 'UTF-8'))  #res为bytes字节串
 
 if __name__ == '__main__':
-    server.run(host='127.0.0.1', port=5000, debug=True)
-    # server.run(host='0.0.0.0', port=5000)
+    parser = ArgumentParser()
+    parser.add_argument('--host', default='127.0.0.1', type=str, help='Server host')
+    parser.add_argument('--port', default=5000, type=int, help='Server port')
+    args = parser.parse_args()
+    # server.run(host=args.host, port=args.port)
+
+    # pip install waitress
+    from waitress import serve
+    serve(server, host=args.host, port=args.port)

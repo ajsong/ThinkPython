@@ -15,7 +15,7 @@ class Member(object):
             raise Exception('Connections have no parameter: ' + connection)
         return DbManager(
             host=connections[connection].get('host', 'localhost'),
-            post=connections[connection].get("port", 3306),
+            post=connections[connection].get('port', 3306),
             user=connections[connection].get('user', 'root'),
             password=connections[connection].get('password', ''),
             database=connections[connection].get('database', ''),
