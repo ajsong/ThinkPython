@@ -1,4 +1,4 @@
-# Developed by @mario 1.5.20220805
+# Developed by @mario 1.6.20220806
 import base64
 import decimal
 import hashlib
@@ -299,6 +299,20 @@ def camelize(value, small=False, delimiter='_'):
 # 驼峰转下划线
 def uncamelize(value, delimiter='_'):
     return re.sub(re.compile(r'([a-z]|\d)([A-Z])'), r'\1%s\2' % delimiter, value).lower()
+
+
+# 写文件
+def write_file(content, filename, path=''):
+    if len(path) == 0:
+        path = runtime_path()
+    if not Path(path).is_dir():
+        os.makedirs(path)
+    file = Path('%s/%s' % (path, filename))
+    if type(content) != str and type(content) != int and type(content) != float and type(content) != complex and type(content) != bool:
+        content = json_encode(content)
+    fo = open('%s' % file, 'w')
+    fo.write(content)
+    fo.close()
 
 
 # 写log文件
