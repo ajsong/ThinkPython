@@ -10,13 +10,9 @@ from http.server import BaseHTTPRequestHandler
 from io import BytesIO
 from select import select
 
-__all__ = ['WebSocket',
-           'WebSocketServer',
-           'SSLWebSocketServer']
-
-
-def _check_unicode(val):
-    return isinstance(val, str)
+__all__ = ['WebsocketServer',
+           'WSServer',
+           'WSSServer']
 
 
 class HTTPRequest(BaseHTTPRequestHandler):
@@ -65,7 +61,7 @@ MAXHEADER = 65536
 MAXPAYLOAD = 33554432
 
 
-class WebSocket(object):
+class WebsocketServer(object):
     def __init__(self, server, sock, address):
         self.server = server
         self.client = sock
@@ -132,10 +128,10 @@ class WebSocket(object):
             pass
         elif self.opcode == PONG or self.opcode == PING:
             if len(self.data) > 125:
-                raise Exception('control frame length can not be > 125')
+                raise Exception('Control frame length can not be > 125')
         else:
             # unknown or reserved opcode so just close
-            raise Exception('unknown opcode')
+            raise Exception('Unknown opcode')
 
         if self.opcode == CLOSE:
             status = 1000
@@ -166,7 +162,7 @@ class WebSocket(object):
         elif self.fin == 0:
             if self.opcode != STREAM:
                 if self.opcode == PING or self.opcode == PONG:
-                    raise Exception('control messages can not be fragmented')
+                    raise Exception('Control messages can not be fragmented')
 
                 self.frag_type = self.opcode
                 self.frag_start = True
@@ -183,7 +179,7 @@ class WebSocket(object):
 
             else:
                 if self.frag_start is False:
-                    raise Exception('fragmentation protocol error')
+                    raise Exception('Fragmentation protocol error')
 
                 if self.frag_type == TEXT:
                     utf_str = self.frag_decoder.decode(self.data, final=False)
@@ -195,7 +191,7 @@ class WebSocket(object):
         else:
             if self.opcode == STREAM:
                 if self.frag_start is False:
-                    raise Exception('fragmentation protocol error')
+                    raise Exception('Fragmentation protocol error')
 
                 if self.frag_type == TEXT:
                     utf_str = self.frag_decoder.decode(self.data, final=True)
@@ -220,14 +216,14 @@ class WebSocket(object):
 
             else:
                 if self.frag_start is True:
-                    raise Exception('fragmentation protocol error')
+                    raise Exception('Fragmentation protocol error')
 
                 if self.opcode == TEXT:
                     try:
                         self.data = self.data.decode('utf8', errors='strict')
                     except Exception as exp:
                         print(exp)
-                        raise Exception('invalid utf-8 payload')
+                        raise Exception('Invalid utf-8 payload')
 
                 self.handleMessage()
 
@@ -237,14 +233,14 @@ class WebSocket(object):
 
             data = self.client.recv(self.headertoread)
             if not data:
-                raise Exception('remote socket closed')
+                raise Exception('Remote socket closed')
 
             else:
                 # accumulate
                 self.headerbuffer.extend(data)
 
                 if len(self.headerbuffer) >= self.maxheader:
-                    raise Exception('header exceeded allowable size')
+                    raise Exception('Header exceeded allowable size')
 
                 # indicates end of HTTP header
                 if b'\r\n\r\n' in self.headerbuffer:
@@ -263,13 +259,13 @@ class WebSocket(object):
                         hStr = FAILED_HANDSHAKE_STR
                         self._sendBuffer(hStr.encode('ascii'), True)
                         self.client.close()
-                        raise Exception('handshake failed: %s', str(e))
+                        raise Exception('Handshake failed: %s', str(e))
 
         # else do normal data
         else:
             data = self.client.recv(16384)
             if not data:
-                raise Exception('remote socket closed')
+                raise Exception('Remote socket closed')
 
             for d in data:
                 self._parseMessage(d)
@@ -286,7 +282,7 @@ class WebSocket(object):
             if self.closed is False:
                 close_msg = bytearray()
                 close_msg.extend(struct.pack('!H', status))
-                if _check_unicode(reason):
+                if isinstance(reason, str):
                     close_msg.extend(reason.encode('utf-8'))
                 else:
                     close_msg.extend(reason)
@@ -306,7 +302,7 @@ class WebSocket(object):
                 # i should be able to send a bytearray
                 sent = self.client.send(buff[already_sent:])
                 if sent == 0:
-                    raise RuntimeError('socket connection broken')
+                    raise RuntimeError('Socket connection broken')
 
                 already_sent += sent
                 tosend -= sent
@@ -332,7 +328,7 @@ class WebSocket(object):
           If the data is a bytearray object then the frame is sent as Binary.
       """
         opcode = BINARY
-        if _check_unicode(data):
+        if isinstance(data, str):
             opcode = TEXT
         self._sendMessage(True, opcode, data)
 
@@ -362,7 +358,7 @@ class WebSocket(object):
           If the data is a bytearray object then the frame is sent as Binary.
       """
         opcode = BINARY
-        if _check_unicode(data):
+        if isinstance(data, str):
             opcode = TEXT
         self._sendMessage(False, opcode, data)
 
@@ -376,7 +372,7 @@ class WebSocket(object):
             b1 |= 0x80
         b1 |= opcode
 
-        if _check_unicode(data):
+        if isinstance(data, str):
             data = data.encode('utf-8')
 
         length = len(data)
@@ -423,7 +419,7 @@ class WebSocket(object):
             length = byte & 0x7F
 
             if self.opcode == PING and length > 125:
-                raise Exception('ping packet is too large')
+                raise Exception('Ping packet is too large')
 
             if mask == 128:
                 self.hasmask = True
@@ -460,12 +456,11 @@ class WebSocket(object):
                 self.lengtharray = bytearray()
                 self.state = LENGTHLONG
 
-
         elif self.state == LENGTHSHORT:
             self.lengtharray.append(byte)
 
             if len(self.lengtharray) > 2:
-                raise Exception('short length exceeded allowable size')
+                raise Exception('Short length exceeded allowable size')
 
             if len(self.lengtharray) == 2:
                 self.length = struct.unpack_from('!H', self.lengtharray)[0]
@@ -493,7 +488,7 @@ class WebSocket(object):
             self.lengtharray.append(byte)
 
             if len(self.lengtharray) > 8:
-                raise Exception('long length exceeded allowable size')
+                raise Exception('Long length exceeded allowable size')
 
             if len(self.lengtharray) == 8:
                 self.length = struct.unpack_from('!Q', self.lengtharray)[0]
@@ -521,7 +516,7 @@ class WebSocket(object):
             self.maskarray.append(byte)
 
             if len(self.maskarray) > 4:
-                raise Exception('mask exceeded allowable size')
+                raise Exception('Mask exceeded allowable size')
 
             if len(self.maskarray) == 4:
                 # if there is no mask and no payload we are done
@@ -547,7 +542,7 @@ class WebSocket(object):
 
             # if length exceeds allowable size then we except and remove the connection
             if len(self.data) >= self.maxpayload:
-                raise Exception('payload exceeded allowable size')
+                raise Exception('Payload exceeded allowable size')
 
             # check if we have processed length bytes; if so we are done
             if (self.index + 1) == self.length:
@@ -561,7 +556,7 @@ class WebSocket(object):
                 self.index += 1
 
 
-class WebSocketServer(object):
+class WSServer(object):
     def __init__(self, host, port, websocketclass, selectInterval=0.1):
         self.websocketclass = websocketclass
         if host == '':
@@ -604,6 +599,9 @@ class WebSocketServer(object):
         writers = []
         for fileno in self.listeners:
             if fileno == self.serversocket:
+                if hasattr(self.websocketclass, 'handleLoop'):
+                    method = getattr(self.websocketclass, 'handleLoop')
+                    method(self)
                 continue
             client = self.connections[fileno]
             if client.sendq:
@@ -620,7 +618,7 @@ class WebSocketServer(object):
                         break
                     else:
                         if opcode == CLOSE:
-                            raise Exception('received client close')
+                            raise Exception('Received client close')
             except Exception as n:
                 self._handleClose(client)
                 del self.connections[ready]
@@ -651,7 +649,7 @@ class WebSocketServer(object):
         for failed in xList:
             if failed == self.serversocket:
                 self.close()
-                raise Exception('server socket failed')
+                raise Exception('Server socket failed')
             else:
                 if failed not in self.connections:
                     continue
@@ -661,13 +659,16 @@ class WebSocketServer(object):
                 self.listeners.remove(failed)
 
     def serveforever(self):
+        if hasattr(self.websocketclass, 'handleBeforeLoop'):
+            method = getattr(self.websocketclass, 'handleBeforeLoop')
+            method(self)
         while True:
             self.serveonce()
 
 
-class SSLWebSocketServer(WebSocketServer):
+class WSSServer(WSServer):
     def __init__(self, host, port, websocketclass, certfile=None, keyfile=None, version=ssl.PROTOCOL_TLSv1, selectInterval=0.1, ssl_context=None):
-        WebSocketServer.__init__(self, host, port, websocketclass, selectInterval)
+        WSServer.__init__(self, host, port, websocketclass, selectInterval)
         if ssl_context is None:
             self.context = ssl.SSLContext(version)
             self.context.load_cert_chain(certfile, keyfile)
@@ -675,7 +676,7 @@ class SSLWebSocketServer(WebSocketServer):
             self.context = ssl_context
 
     def close(self):
-        super(SSLWebSocketServer, self).close()
+        super(WSSServer, self).close()
 
     def _decorateSocket(self, sock):
         sslsock = self.context.wrap_socket(sock, server_side=True)
@@ -687,4 +688,4 @@ class SSLWebSocketServer(WebSocketServer):
         return ws
 
     def serveforever(self):
-        super(SSLWebSocketServer, self).serveforever()
+        super(WSSServer, self).serveforever()

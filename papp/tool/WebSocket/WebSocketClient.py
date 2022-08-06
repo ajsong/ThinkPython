@@ -2,24 +2,30 @@ import json
 import websocket
 import time
 import threading
+import gzip
+from io import BytesIO
 
 
 # pip install websocket_client
-
 class WebsocketClient(object):
-    def __init__(self, url, message_callback=None):
+    def __init__(self, url, callback=None, ungzip=False):
         super(WebsocketClient, self).__init__()
         self.is_running = False
         self.url = url
-        self.message_callback = message_callback
+        self.callback = callback
+        self.ungzip = ungzip
 
     def on_message(self, ws, message):
-        print(message)
-        if self.message_callback is not None:
-            self.message_callback(message)
+        if self.ungzip:
+            buff = BytesIO(message)
+            f = gzip.GzipFile(fileobj=buff)
+            message = f.read().decode('utf-8')
+        # print(message)
+        if self.callback is not None:
+            self.callback(message)
 
     def on_error(self, error):
-        print('Client error:\n', error)
+        print("Client error:\n", error)
 
     def on_close(self, ws):
         self.ws.close()
@@ -54,9 +60,9 @@ class WebsocketClient(object):
 
 
 class WSClient(object):
-    def __init__(self, url, call_back):
+    def __init__(self, url, callback=None, ungzip=False):
         super(WSClient, self).__init__()
-        self.client = WebsocketClient(url, call_back)
+        self.client = WebsocketClient(url, callback, ungzip)
         self.client_thread = None
 
     def run(self):

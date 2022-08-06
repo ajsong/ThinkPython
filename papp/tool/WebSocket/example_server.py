@@ -1,11 +1,14 @@
 import signal
 import sys
 import ssl
-from WebSocketServer import WebSocket, WebSocketServer, SSLWebSocketServer
+from WebSocketServer import WebsocketServer, WSServer, WSSServer
 from optparse import OptionParser
 
 
-class SimpleEcho(WebSocket):
+clients = []
+
+
+class SimpleEcho(WebsocketServer):
 
     def handleMessage(self):
         self.sendMessage(self.data)
@@ -17,10 +20,9 @@ class SimpleEcho(WebSocket):
         pass
 
 
-clients = []
+class SimpleChat(WebsocketServer):
 
-
-class SimpleChat(WebSocket):
+    # def handleLoop(self):
 
     def handleMessage(self):
         for client in clients:
@@ -56,16 +58,12 @@ if __name__ == '__main__':
         cls = SimpleChat
 
     if options.ssl == 1:
-        server = SSLWebSocketServer(options.host, options.port, cls, options.cert, options.key, version=options.ver)
+        server = WSSServer(options.host, options.port, cls, options.cert, options.key, version=options.ver)
     else:
-        server = WebSocketServer(options.host, options.port, cls)
-
+        server = WSServer(options.host, options.port, cls)
 
     def close_sig_handler(signal, frame):
         server.close()
         sys.exit()
-
-
     signal.signal(signal.SIGINT, close_sig_handler)
-
     server.serveforever()
