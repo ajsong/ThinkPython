@@ -659,8 +659,8 @@ class WSServer(object):
                 self.listeners.remove(failed)
 
     def serveforever(self):
-        if hasattr(self.websocketclass, 'handleBeforeLoop'):
-            method = getattr(self.websocketclass, 'handleBeforeLoop')
+        if hasattr(self.websocketclass, 'handleBefore'):
+            method = getattr(self.websocketclass, 'handleBefore')
             method(self)
         while True:
             self.serveonce()

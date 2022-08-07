@@ -32,9 +32,6 @@ def getSubprocess(_cmd, index):
 
 class linkedServer(WebsocketServer):
 
-    def handleBeforeLoop(self):
-        pass
-
     def handleMessage(self):
         data = json_decode(self.data)
         if 'set' in data.keys():
