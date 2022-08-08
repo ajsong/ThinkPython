@@ -13,6 +13,9 @@ class Member(object):
             return Db
         if connection not in connections.keys():
             raise Exception('Connections have no parameter: ' + connection)
+        sqlite = connections[connection].get('sqlite')
+        if sqlite is not None:
+            return DbManager(sqlite=sqlite)
         return DbManager(
             host=connections[connection].get('host', 'localhost'),
             post=connections[connection].get('port', 3306),

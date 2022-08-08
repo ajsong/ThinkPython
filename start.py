@@ -12,6 +12,7 @@ class WildcardConverter(BaseConverter):
 
 # https://blog.csdn.net/Lin_Hv/article/details/113112527
 # https://www.cnblogs.com/DragonFire/p/9255637.html
+# pip install flask
 server = Flask(__name__)
 server.url_map.converters['reg'] = WildcardConverter  # 初始化转换器
 log = logging.getLogger('werkzeug')

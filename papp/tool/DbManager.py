@@ -1,3 +1,4 @@
+import sqlite3
 import pymysql.cursors
 from dbutils.pooled_db import PooledDB
 from .Common import *
@@ -23,11 +24,21 @@ class DbManager(object):
     _replace = False
     _fetchSql = False
 
-    _curMethods = []
+    _sybmol = '%s'
 
     # 构造函数
     def __init__(self, **kwargs):
-        self.version = '1.6.20220805'
+        self.version = '2.0.20220808'
+        self.sqlite = kwargs.get('sqlite', '')
+        if len(self.sqlite) > 0:
+            self.prefix = ''
+            self._sybmol = '?'
+            path = root_path() + '/db/'
+            makedir(path)
+            self.conn = sqlite3.connect(path + self.sqlite)  # 建立一个基于硬盘的数据库实例
+            self.conn.row_factory = self._dict_factory
+            self.cur = self.conn.cursor()
+            return
         self.conn = None
         self.cur = None
         self.prefix = kwargs.get('prefix', '')
@@ -48,27 +59,37 @@ class DbManager(object):
         )
 
     def __getattr__(self, name):
-        self._curMethods = uncamelize(name).split('_', 1)
-        return self._getAttrArgs
+        curMethods = uncamelize(name).split('_', 1)
 
-    def _getAttrArgs(self, *args):
-        method = getattr(self, self._curMethods[0])
-        part = self._curMethods[1]
-        if self._curMethods[0] == 'where':
-            if preg_match(r'^(not_)?in$', part):
-                method(args[0], part.replace('_', ' '), args[1])
-            elif preg_match(r'^(not_)?like$', part):
-                method(args[0], part.replace('_', ' '), args[1])
-            elif preg_match(r'^(not_)?null$', part):
-                method(args[0], part.replace('_', ' '))
+        def fn(*args):
+            method = getattr(self, curMethods[0])
+            part = curMethods[1]
+
+            if curMethods[0] == 'where':
+                if preg_match(r'^(not_)?in$', part):
+                    return method(args[0], part.replace('_', ' '), args[1])
+                elif preg_match(r'^(not_)?like$', part):
+                    return method(args[0], part.replace('_', ' '), args[1])
+                elif preg_match(r'^(not_)?null$', part):
+                    return method(args[0], part.replace('_', ' '))
+                else:
+                    return method(part, args[0])
             else:
-                method(part, args[0])
-        else:
-            method(part, args[0])
-        return self
+                return method(part, args[0])
+
+        return fn
+
+    @staticmethod
+    def _dict_factory(cursor, row):
+        data = {}
+        for index, item in enumerate(cursor.description):
+            data[item[0]] = row[index]
+        return data
 
     # 连接数据库
     def connect(self):
+        if len(self.sqlite) > 0:
+            return True
         try:
             self.conn = self.pool.connection()
             self.cur = self.conn.cursor(cursor=pymysql.cursors.DictCursor)
@@ -83,7 +104,6 @@ class DbManager(object):
         if self.conn and self.cur:
             self.cur.close()
             self.conn.close()
-        return True
 
     # 恢复初始化
     def restore(self):
@@ -124,7 +144,8 @@ class DbManager(object):
             print(sql)
             print(str(e))
             return False
-        self.close()
+        if len(self.sqlite) == 0:
+            self.close()
         return cnt
 
     # 表名(自动加前缀)
@@ -210,7 +231,7 @@ class DbManager(object):
     def whereAdapter(self, where, andOr=' AND ', param1='', param2=''):
         _where = ''
         if re.compile(r'^\d+$').match(str(where)) is not None:
-            _where = '{}`id`=%s'.format(andOr)
+            _where = '{}`id`={}'.format(andOr, self._sybmol)
             self._whereParam.append(where)
         elif type(where) == list:
             if len(where) > 0:
@@ -229,20 +250,20 @@ class DbManager(object):
                         if isRaw:
                             _where_ += value
                         else:
-                            _where_ += '%s'
+                            _where_ += self._sybmol
                             self._whereParam.append(str(value))
                     elif where_ in ['in', 'not in']:
                         _where_ += ' {} ('.format(where_.upper())
                         if type(value) == list:
                             for _item in value:
-                                _where_ += '%s, '
+                                _where_ += self._sybmol + ', '
                                 self._whereParam.append(_item)
                             _where_ = _where_.rstrip(', ')
                         else:
                             _where_ += value
                         _where_ += ')'
                     elif where_ in ['like', 'not like']:
-                        _where_ += ' {} %s'.format(where_.upper())
+                        _where_ += ' {} {}'.format(where_.upper(), self._sybmol)
                         self._whereParam.append(str(value).replace('%', '%%'))
                 _where += _where_.lstrip(' AND ') + ')'
         elif type(where) == dict:
@@ -258,7 +279,7 @@ class DbManager(object):
                 if isRaw:
                     _where_ += value
                 else:
-                    _where_ += '%s'
+                    _where_ += self._sybmol
                 self._whereParam.append(str(value))
             _where += _where_.lstrip(' AND ') + ')'
         elif type(where) == str and len(where) > 0:
@@ -275,20 +296,20 @@ class DbManager(object):
                     if isRaw:
                         _where += value
                     else:
-                        _where += '%s'
+                        _where += self._sybmol
                         self._whereParam.append(str(value))
                 elif where_ in ['in', 'not in']:
                     _where += ' {} ('.format(where_.upper())
                     if type(value) == list:
                         for _item in value:
-                            _where += '%s, '
+                            _where += self._sybmol + ', '
                             self._whereParam.append(_item)
                         _where = _where.rstrip(', ')
                     else:
                         _where += value
                     _where += ')'
                 elif where_ in ['like', 'not like']:
-                    _where += ' {} %s'.format(where_.upper())
+                    _where += ' {} {}'.format(where_.upper(), self._sybmol)
                     self._whereParam.append(str(value).replace('%', '%%'))
             elif len(str(param1)) > 0:
                 value = param1
@@ -299,7 +320,7 @@ class DbManager(object):
                 if type(value) == list:
                     _where += ' IN ('
                     for _item in value:
-                        _where += '%s, '
+                        _where += self._sybmol + ', '
                         self._whereParam.append(_item)
                     _where = _where.rstrip(', ')
                     _where += ')'
@@ -312,7 +333,7 @@ class DbManager(object):
                         if isRaw:
                             _where += value
                         else:
-                            _where += '%s'
+                            _where += self._sybmol
                             self._whereParam.append(str(value))
         if len(_where) > 0:
             self._where += ' WHERE ' + _where.lstrip(andOr) if len(self._where) == 0 else _where
@@ -337,13 +358,13 @@ class DbManager(object):
             if type(value) == list:
                 value = value[0]
             timeStamp = strtotime(date('%Y-%m-%d 00:00:00', strtotime(value)))
-            where = '`{0}`{1}%s'.format(field, operator)
+            where = '`{}`{}{}'.format(field, operator, self._sybmol)
             self._whereParam.append(str(timeStamp))
         elif '>' in operator:
             if type(value) == list:
                 value = value[0]
             timeStamp = strtotime(date('%Y-%m-%d 23:59:59', strtotime(value)))
-            where = '`{0}`{1}%s'.format(field, operator)
+            where = '`{}`{}{}'.format(field, operator, self._sybmol)
             self._whereParam.append(str(timeStamp))
         else:
             if type(value) == list and len(value) == 1:
@@ -354,7 +375,7 @@ class DbManager(object):
             else:
                 start = strtotime(date('%Y-%m-%d 00:00:00', strtotime(value)))
                 end = strtotime(date('%Y-%m-%d 23:59:59', strtotime(value)))
-            where = '`{0}`>=%s AND `{0}`<=%s'.format(field)
+            where = '`{0}`>={1} AND `{0}`<={1}'.format(field, self._sybmol)
             self._whereParam.extend([str(start), str(end)])
         self._where += ' WHERE ' + where if len(self._where) == 0 else where
         return self
@@ -668,7 +689,7 @@ class DbManager(object):
             for items in self._setParam:
                 flag += '('
                 for item in items:
-                    flag += '%s, '
+                    flag += self._sybmol + ', '
                     values.append(item)
                 flag = flag.rstrip(', ') + '), '
             flag = flag.rstrip(', ')
@@ -693,7 +714,7 @@ class DbManager(object):
                 if isRaw:
                     sql += value
                 else:
-                    sql += '%s'
+                    sql += self._sybmol
                     values.append(value)
                 sql += ', '
             sql = sql.rstrip(', ')

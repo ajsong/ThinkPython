@@ -1,4 +1,4 @@
-# Developed by @mario 1.1.20220803
+# Developed by @mario 1.2.20220808
 from argparse import ArgumentParser
 from papp.tool import *
 
@@ -15,7 +15,7 @@ def createControllerFile(param):
         file_put_contents(path + '/__init__.py')
     filepath = path + '/' + clazz + '.py'
     if file_exist(filepath):
-        print('Controller:\033[31m' + filepath + '\033[m already exist.\n')
+        print("Controller:\033[31m" + filepath + "\033[m already exist.\n")
         return None
     method = '''from .Core import *
 
@@ -37,7 +37,7 @@ def createModelFile(param):
         file_put_contents(path + '/__init__.py')
     filepath = path + '/' + clazz + '.py'
     if file_exist(filepath):
-        print('Model:\033[31m' + filepath + '\033[m already exist.\n')
+        print("Model:\033[31m" + filepath + "\033[m already exist.\n")
         return None
     method = '''from ..tool import *
 
@@ -75,9 +75,12 @@ class '''+clazz+'''Class(type):
             return Db
         if connection not in connections.keys():
             raise Exception('Connections have no parameter: ' + connection)
+        sqlite = connections[connection].get('sqlite')
+        if sqlite is not None:
+            return DbManager(sqlite=sqlite)
         return DbManager(
             host=connections[connection].get('host', 'localhost'),
-            post=connections[connection].get('port', 3306),
+            post=connections[connection].get("port", 3306),
             user=connections[connection].get('user', 'root'),
             password=connections[connection].get('password', ''),
             database=connections[connection].get('database', ''),
@@ -255,7 +258,7 @@ if __name__ == '__main__':
         for arg in arguments:
             res = createControllerFile(arg)
             if res is not None:
-                print('Controller:\033[32m' + res + '\033[m created successfully.')
+                print("Controller:\033[32m" + res + "\033[m created successfully.")
         print()
         exit(0)
 
@@ -264,7 +267,7 @@ if __name__ == '__main__':
         for arg in arguments:
             res = createModelFile(camelize(arg))
             if res is not None:
-                print('Model:\033[32m' + res + '\033[m created successfully.')
+                print("Model:\033[32m" + res + "\033[m created successfully.")
         print()
         exit(0)
 
