@@ -3,6 +3,7 @@ import base64
 import decimal
 import hashlib
 import json
+import math
 import shutil
 import sys
 import os
@@ -84,6 +85,53 @@ def file_put_contents(file, content='', mode='w'):
     fo = open(file, mode)
     fo.write(content)
     fo.close()
+
+
+# pip install pandas
+# pip install xlrd
+# pip install xlwt
+# pip install openpyxl
+# 导入Excel
+# columns = ['id', 'name', 'age']
+def import_excel(file, columns=None, has_header=True, sheet_name='Sheet1'):
+    import pandas
+    res = []
+    data = pandas.read_excel(file, sheet_name=sheet_name) if has_header else pandas.read_excel(file, sheet_name=sheet_name, header=None)
+    # data.shape[0]  # 行数
+    # data.shape[1]  # 列数
+    if data.shape[1] == 0:
+        print('Excel is empty')
+        return []
+    if columns is None:
+        columns = []
+        for i in range(data.shape[1]):
+            columns.append('column' + str(i + 1))
+    for row in data.itertuples():
+        d = {}
+        for index, key in enumerate(columns):
+            value = row[index + 1]
+            if type(value) == int or type(value) == float:
+                d[key] = value if math.isnan(value) is False else ''
+            else:
+                d[key] = value
+        res.append(d)
+    return res
+
+
+# 导出Excel
+# columns = {'id': 'ID', 'name': '姓名', 'age': '年龄'}
+def export_excel(file, data, columns=None):
+    import pandas
+    if type(data) != list:
+        data = [data]
+    writer = pandas.ExcelWriter(file)
+    pf = pandas.DataFrame(data)  # 将字典列表转换为DataFrame
+    if type(columns) == dict:
+        pf = pf[dict(columns).keys()]
+        pf.rename(columns=columns, inplace=True)
+    pf.fillna('', inplace=True)  # 替换空单元格
+    pf.to_excel(writer, index=False)
+    writer.save()
 
 
 # 当前时间戳

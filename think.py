@@ -75,18 +75,7 @@ class '''+clazz+'''Class(type):
             return Db
         if connection not in connections.keys():
             raise Exception('Connections have no parameter: ' + connection)
-        sqlite = connections[connection].get('sqlite')
-        if sqlite is not None:
-            return DbManager(sqlite=sqlite)
-        return DbManager(
-            host=connections[connection].get('host', 'localhost'),
-            post=connections[connection].get("port", 3306),
-            user=connections[connection].get('user', 'root'),
-            password=connections[connection].get('password', ''),
-            database=connections[connection].get('database', ''),
-            prefix=connections[connection].get('prefix', ''),
-            charset=connections[connection].get('charset', 'utf8')
-        )
+        return DbManager.instance(connections[connection])
 
     @staticmethod
     def _tablename():

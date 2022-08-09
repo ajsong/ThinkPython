@@ -28,7 +28,7 @@ class DbManager(object):
 
     # 构造函数
     def __init__(self, **kwargs):
-        self.version = '2.0.20220808'
+        self.version = '2.0.20220809'
         self.sqlite = kwargs.get('sqlite', '')
         if len(self.sqlite) > 0:
             self.prefix = ''
@@ -56,6 +56,23 @@ class DbManager(object):
             password=kwargs.get('password', ''),
             database=kwargs.get('database', ''),
             charset=kwargs.get('charset', 'utf8'),
+        )
+
+    @staticmethod
+    def instance(item):
+        if type(item) != dict:
+            raise Exception('Connection param is invalid')
+        sqlite = item.get('sqlite')
+        if sqlite is not None:
+            return DbManager(sqlite=sqlite)
+        return DbManager(
+            host=item.get('host', 'localhost'),
+            post=item.get('port', 3306),
+            user=item.get('user', 'root'),
+            password=item.get('password', ''),
+            database=item.get('database', ''),
+            prefix=item.get('prefix', ''),
+            charset=item.get('charset', 'utf8')
         )
 
     def __getattr__(self, name):
@@ -385,7 +402,7 @@ class DbManager(object):
         if type(field) == list:
             fields = field if len(field) > 0 else ['*']
             for item in fields:
-                self._field.append(preg_replace(r'(\w+)', DbManager.fieldMatcher, item))
+                self._field.append(preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, item))
         elif type(field) == dict:
             if type(self._field) != list:
                 self._field = []
@@ -394,12 +411,12 @@ class DbManager(object):
         elif type(field) == str:
             fields = field.split(',') if len(field) > 0 else ['*']
             for item in fields:
-                self._field.append(preg_replace(r'(\w+)', DbManager.fieldMatcher, item.strip()))
+                self._field.append(preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, item.strip()))
         return self
 
     @staticmethod
     def fieldMatcher(matcher):
-        if matcher.group(1).lower() == 'as':
+        if matcher.group(1).upper() in 'AS,IF,IFNULL,ABS,CEIL,FLOOR,RAND,PI,POW,EXP,MOD,CONCAT,UPPER,LOWER,LEFT,RIGHT,LRTIM,RTRIM,TRIM,REPEAT,REPLACE,REVERSE,CURDATE,CURTIME,NOW,FROM_UNIXTIME,UNIX_TIMESTAMP,DATE_FORMAT,MONTH,WEEK,HOUR,MINUTE,SECOND'.split(','):
             return matcher.group(1)
         else:
             return '`%s`' % matcher.group(1)
