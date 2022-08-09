@@ -10,6 +10,7 @@ from io import BytesIO
 class WebsocketClient(object):
     def __init__(self, url, callback=None, ungzip=False):
         super(WebsocketClient, self).__init__()
+        self.ws = None
         self.is_running = False
         self.url = url
         self.callback = callback
@@ -63,11 +64,11 @@ class WSClient(object):
     def __init__(self, url, callback=None, ungzip=False):
         super(WSClient, self).__init__()
         self.client = WebsocketClient(url, callback, ungzip)
-        self.client_thread = None
+        self.thread = None
 
     def run(self):
-        self.client_thread = threading.Thread(target=self.run_client)
-        self.client_thread.start()
+        self.thread = threading.Thread(target=self.run_client)
+        self.thread.start()
 
     def run_client(self):
         self.client.run()

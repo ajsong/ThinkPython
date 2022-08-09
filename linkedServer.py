@@ -1,6 +1,7 @@
 import ctypes
 import inspect
 import signal
+from argparse import ArgumentParser
 from threading import Thread
 from papp.tool import *
 from papp.tool.WebSocket.WebSocketServer import WebsocketServer, WSServer
@@ -67,7 +68,11 @@ class linkedServer(WebsocketServer):
 
 
 if __name__ == '__main__':
-    server = WSServer('', 7312, linkedServer)
+    parser = ArgumentParser()
+    parser.add_argument('--port', default=7312, type=int)
+    args = parser.parse_args()
+
+    server = WSServer('', args.port, linkedServer)
 
     def close_sig_handler(signal, frame):
         server.close()

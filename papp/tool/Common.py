@@ -1,4 +1,4 @@
-# Developed by @mario 1.6.20220806
+# Developed by @mario 1.7.20220809
 import base64
 import decimal
 import hashlib
@@ -33,6 +33,21 @@ def root_path():
 # 获取运行时目录
 def runtime_path():
     return root_path() + '/runtime'
+
+
+# 生成序列号
+def generate_sn():
+    return date('%y%m%d%H%M%S') + str(random.randint(10000, 99999))
+
+
+# 随机范围内整数
+def random_num(minNum=0, maxNum=sys.maxsize):
+    return random.randint(minNum, maxNum)
+
+
+# 随机范围内小数
+def random_float(minNum=0, maxNum=1):
+    return random.uniform(minNum, maxNum)
 
 
 # 正则匹配
@@ -333,32 +348,6 @@ def write_error(content):
     write_log(content, 'error.txt')
 
 
-# 网络请求
-def requestUrl(method, url, params=None, returnJson=False, postJson=False, headers=None):
-    method = method.upper()
-    if url.startswith('https:') is False and url.startswith('http:') is False:
-        url = apiUrl.rstrip('/') + '/' + url.lstrip('/')
-    if headers is None:
-        headers = {}
-    if postJson:
-        headers['Content-type'] = 'application/json;charset=UTF-8'
-    if method == 'FILE':
-        # params = {'image': open('test.jpg', 'rb')}
-        # params = {'file': ('test.jpg', open('test.jpg', 'rb'), 'image/jpeg'), 'dir': (None, 'pic')}
-        res = requests.post(url=url, files=params, headers=headers, timeout=10)
-    elif method == 'POST':
-        res = requests.post(url=url, data=params, headers=headers, timeout=5)
-    else:
-        res = requests.get(url=url, params=params, headers=headers, timeout=5)
-    if res.status_code == 301 or res.status_code == 302:
-        return requestUrl(method, url, params, returnJson, postJson, headers)
-    if res is None:
-        return None
-    if returnJson:
-        return json_decode(res.text)
-    return res.text
-
-
 # 区块链数量去精度
 def round_amount(value, scale=8, decimals=0):
     if decimals <= 0:
@@ -402,29 +391,49 @@ def getMethod(clazz, method):
     return None
 
 
-# 生成序列号
-def generate_sn():
-    return date('%y%m%d%H%M%S') + str(random.randint(10000, 99999))
-
-
-# 随机范围内整数
-def random_num(minNum=0, maxNum=sys.maxsize):
-    return random.randint(minNum, maxNum)
-
-
-# 随机范围内小数
-def random_float(minNum=0, maxNum=1):
-    return random.uniform(minNum, maxNum)
+# 网络请求
+def requestUrl(method, url, data=None, returnJson=False, postJson=False, headers=None, proxies=None):
+    method = method.upper()
+    if url.startswith('https:') is False and url.startswith('http:') is False:
+        url = apiUrl.rstrip('/') + '/' + url.lstrip('/')
+    if headers is None:
+        headers = {}
+    if postJson:
+        headers['Content-type'] = 'application/json;charset=UTF-8'
+    if type(proxies) == str:
+        proxies = {'http': proxies, 'https': proxies}  # 127.0.0.1:7890
+    if method == 'FILE':
+        # data = {'image': open('test.jpg', 'rb')}
+        # data = {'file': ('test.jpg', open('test.jpg', 'rb'), 'image/jpeg'), 'dir': (None, 'pic')}
+        res = requests.post(url=url, files=data, headers=headers, timeout=10, proxies=proxies)
+    elif method == 'POST':
+        res = requests.post(url=url, data=data, headers=headers, timeout=5, proxies=proxies)
+    else:
+        res = requests.get(url=url, params=data, headers=headers, timeout=5, proxies=proxies)
+    if res.status_code == 301 or res.status_code == 302:
+        return requestUrl(method, url, data, returnJson, postJson, headers, proxies)
+    if res is None:
+        return None
+    if returnJson:
+        return json_decode(res.text)
+    return res.text
 
 
 # success
-def success(data=None, msg='success'):
+def success(data=None, msg='success', extend=None, **kwargs):
     res = {
         'code': 0,
         'message': msg
     }
+    if len(kwargs) > 0:  # 第4个参数合并到data(data为字典有效)
+        if data is not None:
+            data = {}
+        if type(data) == dict:
+            data.update(kwargs)
     if data is not None and len(data) > 0:
         res['data'] = data
+    if type(extend) == dict:  # 第3个参数合并到res
+        res.update(extend)
     return res
 
 
