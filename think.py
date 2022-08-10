@@ -228,6 +228,10 @@ class '''+clazz+'''Class(type):
     def delete(where=None):
         return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).delete(where)
 
+    @staticmethod
+    def buildSql(sqlType='SELECT'):
+        return WebDataClass._connectname().name(WebDataClass._tablename()).buildSql(sqlType)
+
 
 class '''+clazz+'''(metaclass='''+clazz+'''Class):
     pass

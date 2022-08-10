@@ -28,7 +28,7 @@ class DbManager(object):
 
     # 构造函数
     def __init__(self, **kwargs):
-        self.version = '2.0.20220809'
+        self.version = '2.1.20220810'
         self.sqlite = kwargs.get('sqlite', '')
         if len(self.sqlite) > 0:
             self.prefix = ''
@@ -57,6 +57,13 @@ class DbManager(object):
             database=kwargs.get('database', ''),
             charset=kwargs.get('charset', 'utf8'),
         )
+
+    @staticmethod
+    def _dict_factory(cursor, row):
+        data = DbDict()
+        for index, item in enumerate(cursor.description):
+            data[item[0]] = row[index]
+        return data
 
     @staticmethod
     def instance(item):
@@ -95,13 +102,6 @@ class DbManager(object):
                 return method(part, args[0])
 
         return fn
-
-    @staticmethod
-    def _dict_factory(cursor, row):
-        data = {}
-        for index, item in enumerate(cursor.description):
-            data[item[0]] = row[index]
-        return data
 
     # 连接数据库
     def connect(self):
@@ -172,16 +172,26 @@ class DbManager(object):
     # 表名
     def table(self, table):
         restore = True
-        if table.startswith('!'):  # 表名前加!代表不restore
-            restore = False
-            table = table[1:]
+        if type(table) == dict:
+            tables = table
+            key = tables.keys()[0]
+            table = key
+            self.alias(tables.get(key))
+        if re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
+            if " " in table:
+                tables = re.sub(r'\s+', ' ', table).split(' ')
+                table = tables[0]
+                if table.startswith('!'):  # 表名前加!代表不restore
+                    restore = False
+                    table = '`{}`'.format(table[1:])
+                else:
+                    table = '`{}`'.format(tables[0])
+                self.alias(tables[1])
+        else:
+            table = '({})'.format(table)
         if restore:
             self.restore()
-        if " " in table:
-            tables = re.sub(r'\s+', ' ', table).split(' ')
-            table = tables[0]
-            self.alias(tables[1])
-        self._table = '`%s`' % table
+        self._table = table
         return self
 
     # 表别名
@@ -192,11 +202,19 @@ class DbManager(object):
     # 左联接
     def leftJoin(self, table, on=''):
         alias = ''
-        if ' ' in table:
-            tables = re.sub(r'\s+', ' ', table).split(' ')
-            table = tables[0]
-            alias = ' `' + tables[1] + '`'
-        sql = ' LEFT JOIN `%s%s`%s' % (self.prefix, table.replace(self.prefix, ''), alias)
+        if type(table) == dict:
+            tables = table
+            key = tables.keys()[0]
+            table = key
+            alias = ' `' + tables.get(key) + '`'
+        if re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
+            if ' ' in table:
+                tables = re.sub(r'\s+', ' ', table).split(' ')
+                table = '`{}{}`'.format(self.prefix, tables[0].replace(self.prefix, ''))
+                alias = ' `' + tables[1] + '`'
+        else:
+            table = '({})'.format(table)
+        sql = ' LEFT JOIN %s%s' % (table, alias)
         if len(on) > 0:
             sql += ' ON ' + preg_replace(r'(\w+)', r'`\1`', on)
         self._left.append(sql)
@@ -205,11 +223,19 @@ class DbManager(object):
     # 右联接
     def rightJoin(self, table, on=''):
         alias = ''
-        if ' ' in table:
-            tables = re.sub(r'\s+', ' ', table).split(' ')
-            table = tables[0]
-            alias = ' `' + tables[1] + '`'
-        sql = ' RIGHT JOIN `%s%s`%s' % (self.prefix, table.replace(self.prefix, ''), alias)
+        if type(table) == dict:
+            tables = table
+            key = tables.keys()[0]
+            table = key
+            alias = ' `' + tables.get(key) + '`'
+        if re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
+            if ' ' in table:
+                tables = re.sub(r'\s+', ' ', table).split(' ')
+                table = '`{}{}`'.format(self.prefix, tables[0].replace(self.prefix, ''))
+                alias = ' `' + tables[1] + '`'
+        else:
+            table = '({})'.format(table)
+        sql = ' RIGHT JOIN %s%s' % (table, alias)
         if len(on) > 0:
             sql += ' ON ' + preg_replace(r'(\w+)', r'`\1`', on)
         self._right.append(sql)
@@ -218,11 +244,19 @@ class DbManager(object):
     # 等值联接
     def innerJoin(self, table, on=''):
         alias = ''
-        if ' ' in table:
-            tables = re.sub(r'\s+', ' ', table).split(' ')
-            table = tables[0]
-            alias = ' `' + tables[1] + '`'
-        sql = ' INNER JOIN `%s%s`%s' % (self.prefix, table.replace(self.prefix, ''), alias)
+        if type(table) == dict:
+            tables = table
+            key = tables.keys()[0]
+            table = key
+            alias = ' `' + tables.get(key) + '`'
+        if re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
+            if ' ' in table:
+                tables = re.sub(r'\s+', ' ', table).split(' ')
+                table = '`{}{}`'.format(self.prefix, tables[0].replace(self.prefix, ''))
+                alias = ' `' + tables[1] + '`'
+        else:
+            table = '({})'.format(table)
+        sql = ' INNER JOIN %s%s' % (table, alias)
         if len(on) > 0:
             sql += ' ON ' + preg_replace(r'(\w+)', r'`\1`', on)
         self._inner.append(sql)
@@ -231,11 +265,19 @@ class DbManager(object):
     # 多联接
     def crossJoin(self, table):
         alias = ''
-        if ' ' in table:
-            tables = re.sub(r'\s+', ' ', table).split(' ')
-            table = tables[0]
-            alias = ' `' + tables[1] + '`'
-        self._cross.append(', `%s%s`%s' % (self.prefix, table.replace(self.prefix, ''), alias))
+        if type(table) == dict:
+            tables = table
+            key = tables.keys()[0]
+            table = key
+            alias = ' `' + tables.get(key) + '`'
+        if re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
+            if ' ' in table:
+                tables = re.sub(r'\s+', ' ', table).split(' ')
+                table = '`{}{}`'.format(self.prefix, tables[0].replace(self.prefix, ''))
+                alias = ' `' + tables[1] + '`'
+        else:
+            table = '({})'.format(table)
+        self._cross.append(', %s%s' % (table, alias))
         return self
 
     # 条件
@@ -247,7 +289,11 @@ class DbManager(object):
 
     def whereAdapter(self, where, andOr=' AND ', param1='', param2=''):
         _where = ''
-        if re.compile(r'^\d+$').match(str(where)) is not None:
+        if callable(where):
+            _where += '{}('.format(andOr)
+            _where += where(self)
+            _where += ')'
+        elif re.compile(r'^\d+$').match(str(where)) is not None:
             _where = '{}`id`={}'.format(andOr, self._sybmol)
             self._whereParam.append(where)
         elif type(where) == list:
@@ -562,7 +608,7 @@ class DbManager(object):
         if field is not None:
             self.field(field)
         self.limit(1)
-        sql = self.buildSql('select')
+        sql = self.buildSql('SELECT')
         if self._cache > 0:
             res = self._cacheSql(sql)
             if res is not None:
@@ -574,13 +620,13 @@ class DbManager(object):
         res = self.cur.fetchone()
         if self._cache > 0:
             self._cacheSql(sql, res)
-        return res
+        return DbDict(res)
 
     # 数据集
     def select(self, field=None):
         if field is not None:
             self.field(field)
-        sql = self.buildSql('select')
+        sql = self.buildSql('SELECT')
         if self._cache > 0:
             res = self._cacheSql(sql)
             if res is not None:
@@ -589,9 +635,12 @@ class DbManager(object):
         if self._fetchSql:
             print('{}\n{}\n'.format(sql, self._whereParam))
         self.execute(sql, self._whereParam)
-        res = self.cur.fetchall()
+        ret = self.cur.fetchall()
         if self._cache > 0:
-            self._cacheSql(sql, res)
+            self._cacheSql(sql, ret)
+        res = []
+        for item in ret:
+            res.append(DbDict(item))
         return res
 
     # 新增并返回新增ID, data: 字典类型{} 数组类型[{}]
@@ -611,7 +660,7 @@ class DbManager(object):
             for k, v in item.items():
                 param.append(str(v))
             self._setParam.append(param)
-        sql = self.buildSql('insert')
+        sql = self.buildSql('INSERT')
         if self._fetchSql:
             print('{}\n{}\n'.format(sql, self._setParam))
         try:
@@ -630,7 +679,7 @@ class DbManager(object):
             pass
         else:
             self._setParam = data
-        sql = self.buildSql('update')
+        sql = self.buildSql('UPDATE')
         if self._fetchSql:
             print('{}\n{}\n'.format(sql, self._setParam))
         try:
@@ -645,7 +694,7 @@ class DbManager(object):
     def delete(self, where=None):
         if where is not None:
             self.where(where)
-        sql = self.buildSql('delete')
+        sql = self.buildSql('DELETE')
         if self._fetchSql:
             print('{}\n{}\n'.format(sql, self._setParam))
         try:
@@ -655,6 +704,27 @@ class DbManager(object):
             print(str(e))
             self.conn.rollback()
             exit(0)
+
+    # 执行原生SQL语句
+    def query(self, sql, params=None):
+        if sql.upper().startswith('SELECT '):
+            self.execute(sql, params)
+            ret = self.cur.fetchall()
+            res = []
+            for item in ret:
+                res.append(DbDict(item))
+            return res
+        else:
+            try:
+                self.execute(sql, params)
+                if sql.upper().startswith('INSERT '):
+                    return self.cur.lastrowid
+                else:
+                    return self.cur.rowcount
+            except Exception as e:
+                print(str(e))
+                self.conn.rollback()
+                exit(0)
 
     # 获取/设置sql缓存
     def _cacheSql(self, sql, res=None):
@@ -672,7 +742,14 @@ class DbManager(object):
                         fo = open('%s' % cacheFile, 'r')
                         data = fo.read()
                         fo.close()
-                        return json_decode(data)
+                        ret = json_decode(data)
+                        if type(ret) == dict:
+                            return DbDict(ret)
+                        else:
+                            res = []
+                            for item in ret:
+                                res.append(DbDict(item))
+                            return res
             return None
         if not cacheDir.is_dir():
             os.makedirs('%s' % cacheDir)
@@ -683,8 +760,9 @@ class DbManager(object):
         return None
 
     # 构建SQL语句
-    def buildSql(self, sqlType):
-        if sqlType == 'select':
+    def buildSql(self, sqlType='SELECT'):
+        sqlType = sqlType.upper()
+        if sqlType == 'SELECT':
             if len(self._field) == 0:
                 self._field = ['*']
             sql = 'SELECT %s FROM %s%s' % (', '.join(self._field), self._table, self._alias)
@@ -699,7 +777,7 @@ class DbManager(object):
             limit = ' LIMIT %d,%d' % (self._offset, self._pagesize) if self._pagesize > 0 else ''
             sql += '%s%s%s%s%s' % (self._where, self._group, self._having, self._order, limit)
             return sql
-        elif sqlType == 'insert':
+        elif sqlType == 'INSERT':
             sql = 'INSERT INTO %s (%s) VALUES ' % (self._table, ', '.join(self._field))
             values = []
             flag = ''
@@ -718,7 +796,7 @@ class DbManager(object):
                 sql += ' ON DUPLICATE KEY UPDATE %s' % ', '.join(updateValues)
             self._setParam = tuple(values)
             return sql
-        elif sqlType == 'update':
+        elif sqlType == 'UPDATE':
             values = []
             sql = 'UPDATE %s SET ' % self._table
             for k, v in dict(self._setParam).items():
@@ -741,7 +819,7 @@ class DbManager(object):
                     values.append(item)
             self._setParam = tuple(values)
             return sql
-        elif sqlType == 'delete':
+        elif sqlType == 'DELETE':
             values = []
             sql = 'DELETE' + ' FROM %s%s' % (self._table, self._where)
             if len(self._whereParam) > 0:
@@ -756,6 +834,17 @@ class DbRaw(object):
 
     def __init__(self, data):
         self.data = data
+
+
+class DbDict(dict):
+    def __getattr__(self, item):
+        res = self.get(item)
+        if isinstance(res, decimal.Decimal):
+            res = float(res)
+        return res
+
+    def __setattr__(self, key, value):
+        self[key] = value
 
 
 Db = DbManager(
