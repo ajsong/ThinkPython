@@ -1,4 +1,4 @@
-# Developed by @mario 1.7.20220809
+# Developed by @mario 1.8.20220810
 import base64
 import decimal
 import hashlib
@@ -69,10 +69,10 @@ def preg_split(pattern, string):
 # 获取文件内容
 def file_get_contents(file):
     if os.path.isfile(file) is False:
-        print('The abi file does not exist')
+        print('The file does not exist\n' + file)
         return None
     if os.access(file, os.R_OK) is False:
-        print('The abi file does not read')
+        print('The file can not read\n' + file)
         return None
     fo = open(file, 'r')
     content = fo.read()
@@ -364,6 +364,15 @@ def uncamelize(value, delimiter='_'):
     return re.sub(re.compile(r'([a-z]|\d)([A-Z])'), r'\1%s\2' % delimiter, value).lower()
 
 
+# 把列表分割成小列表
+def array_chunk(array, length):
+    group = zip(*(iter(array),) *length)
+    arr = [list(i) for i in group]
+    count = len(array) % length
+    arr.append(array[-count:]) if count != 0 else arr
+    return arr
+
+
 # 写文件
 def write_file(content, filename, path=''):
     if len(path) == 0:
@@ -394,6 +403,16 @@ def write_log(content, filename='log.txt'):
 # 写error文件
 def write_error(content):
     write_log(content, 'error.txt')
+
+
+# 计时器, 开始时调用 start = timing(), 结束时调用 timing(start)
+def timing(start=0):
+    if start == 0:
+        print("start: %s" % date())
+        return timestamp()
+    print("end: %s" % date())
+    between = timestamp() - start
+    print("共消耗 %.1f 分钟" % float(between/60))
 
 
 # 区块链数量去精度

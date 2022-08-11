@@ -12,6 +12,7 @@ class MetaMask(object):
     contractPath = ''
     abi = None
     addr = ''
+    privateKey = ''
 
     def __init__(self, host, chainId, contract='contract', addr=''):
         self.host = host
@@ -19,16 +20,10 @@ class MetaMask(object):
         self.contractPath = root_path() + '/contract'
         makedir(self.contractPath)
         abi = file_get_contents(self.contractPath + '/' + contract + '.abi')
-        if abi is None:
-            print("Cann't read the abi file")
-            exit(0)
         self.abi = json_decode(abi)
         if len(addr) == 0:
             addr = file_get_contents(self.contractPath + '/' + contract + '.addr')
-            if addr is None:
-                print("Cann't read the addr file")
-                exit(0)
-        self.addr = Web3.toChecksumAddress(addr.lower())
+        self.addr = self.address(addr)
 
         self.web3 = self.createWeb3(host)
         self.contract = self.web3.eth.contract(address=self.addr, abi=self.abi)
@@ -38,9 +33,13 @@ class MetaMask(object):
         web3.middleware_onion.inject(geth_poa_middleware, layer=0)  # 注入poa中间件，解决兼容问题
         return web3
 
+    # ChecksumAddress
+    def address(self, account):
+        return Web3.toChecksumAddress(account.lower())
+
     # 获取余额
     def getBalance(self, account, scale=8, decimals=0):
-        account = Web3.toChecksumAddress(account.lower())
+        account = self.address(account)
         try:
             res = self.contract.functions.balanceOf(account).call()  # 合约方法
         except Exception as ex:
@@ -149,7 +148,7 @@ class MetaMask(object):
     # 生成矿工费选项
     def createGas(self, froms, gas=1800000, default_gwei=1):
         return {
-            'from': Web3.toChecksumAddress(froms.lower()),
+            'from': self.address(froms),
             'gas': self.decHex(gas, True),
             'gasPrice': self.decHex(self.web3.toWei(self.gasPrice(default_gwei), 'gwei'), True)
         }
@@ -159,24 +158,30 @@ class MetaMask(object):
         # 返回指定地址发生的交易数量
         nonce = ''
         try:
-            nonce = self.web3.eth.get_transaction_count(Web3.toChecksumAddress(froms.lower()))
+            nonce = self.web3.eth.get_transaction_count(self.address(froms))
         except Exception as ex:
             print(str(ex))
             exit(0)
-        raw['from'] = Web3.toChecksumAddress(froms.lower())
-        if len(to) > 0: raw['to'] = Web3.toChecksumAddress(to.lower())  # 存在to即是走链通道, 不存在即是走合约通道
+        raw['from'] = self.address(froms)
+        if len(to) > 0: raw['to'] = self.address(to)  # 存在to即是走链通道, 不存在即是走合约通道
         raw['chainId'] = self.chainId
         raw['nonce'] = self.decHex(nonce, True)
-        print(raw)
         # write_log(raw, self.contractPath + '/log.txt')
-        credential = self.web3.eth.account.sign_transaction(raw, private_key=ethParam['private_key'])
+        private_key = self.privateKey
+        if len(private_key) == 0:
+            try:
+                private_key = ethParam['private_key']
+            except Exception as ex:
+                print(str(ex))
+                exit(0)
+        credential = self.web3.eth.account.sign_transaction(raw, private_key=private_key)
         return credential.rawTransaction
 
     # 转账交易
     def transfer(self, froms, to, value):
         hashStr = ''
         try:
-            raw = self.contract.functions.transfer(Web3.toChecksumAddress(to.lower()), int(self.setValue(value))).build_transaction(self.createGas(froms))
+            raw = self.contract.functions.transfer(self.address(to), int(self.setValue(value))).build_transaction(self.createGas(froms))
             # 发起裸交易
             hashStr = self.web3.eth.send_raw_transaction(self.transactionData(raw, froms))
             hashStr = self.web3.toHex(hashStr)

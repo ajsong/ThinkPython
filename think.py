@@ -1,4 +1,4 @@
-# Developed by @mario 1.2.20220808
+# Developed by @mario 1.3.20220811
 from argparse import ArgumentParser
 from papp.tool import *
 
@@ -61,6 +61,8 @@ class '''+clazz+'''Class(type):
                     return method(args[0], part.replace('_', ' '))
                 else:
                     return method(part, args[0])
+            elif curMethods[0] == 'field':
+                return method({part: args[0]})
             else:
                 return method(part, args[0])
 
@@ -103,6 +105,10 @@ class '''+clazz+'''Class(type):
     @staticmethod
     def crossJoin(table):
         return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).crossJoin(table)
+
+    @staticmethod
+    def unionAll(table, field=None, where='', group='', having='', order='', offset=0, pagesize=0):
+        return '''+clazz+'''Class._connectname().name('''+clazz+'''Class._tablename()).unionAll(table, field, where, group, having, order, offset, pagesize)
 
     @staticmethod
     def where(where, param1='', param2=''):

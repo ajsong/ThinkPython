@@ -11,6 +11,7 @@ class DbManager(object):
     _right = []
     _inner = []
     _cross = []
+    _union = []
     _where = ''
     _field = []
     _group = ''
@@ -28,7 +29,7 @@ class DbManager(object):
 
     # 构造函数
     def __init__(self, **kwargs):
-        self.version = '2.1.20220810'
+        self.version = '2.2.20220811'
         self.sqlite = kwargs.get('sqlite', '')
         if len(self.sqlite) > 0:
             self.prefix = ''
@@ -98,6 +99,8 @@ class DbManager(object):
                     return method(args[0], part.replace('_', ' '))
                 else:
                     return method(part, args[0])
+            elif curMethods[0] == 'field':
+                return method({part: args[0]})
             else:
                 return method(part, args[0])
 
@@ -130,6 +133,7 @@ class DbManager(object):
         self._right = []
         self._inner = []
         self._cross = []
+        self._union = []
         self._where = ''
         self._field = []
         self._group = ''
@@ -177,16 +181,16 @@ class DbManager(object):
             key = tables.keys()[0]
             table = key
             self.alias(tables.get(key))
-        if re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
-            if " " in table:
+        if re.compile(r'^!?\w+(\s+\w+)?$').match(str(table)) is not None:
+            if ' ' in table:
                 tables = re.sub(r'\s+', ' ', table).split(' ')
                 table = tables[0]
-                if table.startswith('!'):  # 表名前加!代表不restore
-                    restore = False
-                    table = '`{}`'.format(table[1:])
-                else:
-                    table = '`{}`'.format(tables[0])
                 self.alias(tables[1])
+            if table.startswith('!'):  # 表名前加!代表不restore
+                restore = False
+                table = '`{}`'.format(table[1:])
+            else:
+                table = '`{}`'.format(table)
         else:
             table = '({})'.format(table)
         if restore:
@@ -210,8 +214,9 @@ class DbManager(object):
         if re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
             if ' ' in table:
                 tables = re.sub(r'\s+', ' ', table).split(' ')
-                table = '`{}{}`'.format(self.prefix, tables[0].replace(self.prefix, ''))
+                table = tables[0]
                 alias = ' `' + tables[1] + '`'
+            table = '`{}{}`'.format(self.prefix, table.replace(self.prefix, ''))
         else:
             table = '({})'.format(table)
         sql = ' LEFT JOIN %s%s' % (table, alias)
@@ -231,8 +236,9 @@ class DbManager(object):
         if re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
             if ' ' in table:
                 tables = re.sub(r'\s+', ' ', table).split(' ')
-                table = '`{}{}`'.format(self.prefix, tables[0].replace(self.prefix, ''))
+                table = tables[0]
                 alias = ' `' + tables[1] + '`'
+            table = '`{}{}`'.format(self.prefix, table.replace(self.prefix, ''))
         else:
             table = '({})'.format(table)
         sql = ' RIGHT JOIN %s%s' % (table, alias)
@@ -252,8 +258,9 @@ class DbManager(object):
         if re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
             if ' ' in table:
                 tables = re.sub(r'\s+', ' ', table).split(' ')
-                table = '`{}{}`'.format(self.prefix, tables[0].replace(self.prefix, ''))
+                table = tables[0]
                 alias = ' `' + tables[1] + '`'
+            table = '`{}{}`'.format(self.prefix, table.replace(self.prefix, ''))
         else:
             table = '({})'.format(table)
         sql = ' INNER JOIN %s%s' % (table, alias)
@@ -273,21 +280,45 @@ class DbManager(object):
         if re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
             if ' ' in table:
                 tables = re.sub(r'\s+', ' ', table).split(' ')
-                table = '`{}{}`'.format(self.prefix, tables[0].replace(self.prefix, ''))
+                table = tables[0]
                 alias = ' `' + tables[1] + '`'
+            table = '`{}{}`'.format(self.prefix, table.replace(self.prefix, ''))
         else:
             table = '({})'.format(table)
         self._cross.append(', %s%s' % (table, alias))
         return self
 
+    # 联合查询
+    def unionAll(self, table, field=None, where='', group='', having='', order='', offset=0, pagesize=0):
+        if type(table) == dict:
+            tables = table
+            key = tables.keys()[0]
+            table = key
+        if re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
+            if ' ' in table:
+                tables = re.sub(r'\s+', ' ', table).split(' ')
+                table = tables[0]
+            table = '`{}{}`'.format(self.prefix, table.replace(self.prefix, ''))
+            sql = 'SELECT {} FROM {}'.format(', '.join(self._fieldAdapter(field, True)), table)
+            where = self._whereAdapter(where, ' AND ', '', '', True)
+            group = ' GROUP BY ' + preg_replace(r'(\w+)', r'`\1`', group) if len(group) > 0 else ''
+            having = ' HAVING ' + having if len(having) > 0 else ''
+            order = self._orderAdapter(order, '', True)
+            limit = ' LIMIT %d,%d' % (offset, pagesize) if pagesize > 0 else ''
+            sql += '%s%s%s%s%s' % (where, group, having, order, limit)
+        else:
+            sql = '({})'.format(table)
+        self._union.append(' UNION ALL {}'.format(sql))
+        return self
+
     # 条件
     def where(self, where, param1='', param2=''):
-        return self.whereAdapter(where, ' AND ', param1, param2)
+        return self._whereAdapter(where, ' AND ', param1, param2)
 
     def whereOr(self, where, param1='', param2=''):
-        return self.whereAdapter(where, ' OR ', param1, param2)
+        return self._whereAdapter(where, ' OR ', param1, param2)
 
-    def whereAdapter(self, where, andOr=' AND ', param1='', param2=''):
+    def _whereAdapter(self, where, andOr=' AND ', param1='', param2='', directReturn=False):
         _where = ''
         if callable(where):
             _where += '{}('.format(andOr)
@@ -398,6 +429,8 @@ class DbManager(object):
                         else:
                             _where += self._sybmol
                             self._whereParam.append(str(value))
+        if directReturn:
+            return ' WHERE ' + _where.lstrip(andOr) if len(_where) > 0 else ''
         if len(_where) > 0:
             self._where += ' WHERE ' + _where.lstrip(andOr) if len(self._where) == 0 else _where
         return self
@@ -445,24 +478,38 @@ class DbManager(object):
 
     # 字段
     def field(self, field):
+        return self._fieldAdapter(field)
+
+    def _fieldAdapter(self, field, directReturn=False):
+        _field = []
         if type(field) == list:
             fields = field if len(field) > 0 else ['*']
             for item in fields:
-                self._field.append(preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, item))
+                if len(item) > 0:
+                    _field.append(preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, item))
         elif type(field) == dict:
-            if type(self._field) != list:
-                self._field = []
             for k, v in field.items():
-                self._field.append('`%s` AS `%s`' % (k, v))
+                if len(k) > 0 or len(v) > 0:
+                    if len(k) > 0:
+                        _field.append('%s AS `%s`' % (preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, k), v) if len(v) > 0 else k)
+                    else:
+                        _field.append("'' AS `%s`" % v)
         elif type(field) == str:
             fields = field.split(',') if len(field) > 0 else ['*']
             for item in fields:
-                self._field.append(preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, item.strip()))
+                _field.append(preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, item.strip()))
+        elif field is None:
+            _field.append('*')
+        if directReturn:
+            return _field
+        if type(self._field) != list:
+            self._field = []
+        self._field.extend(_field)
         return self
 
     @staticmethod
     def fieldMatcher(matcher):
-        if matcher.group(1).upper() in 'AS,IF,IFNULL,ABS,CEIL,FLOOR,RAND,PI,POW,EXP,MOD,CONCAT,UPPER,LOWER,LEFT,RIGHT,LRTIM,RTRIM,TRIM,REPEAT,REPLACE,REVERSE,CURDATE,CURTIME,NOW,FROM_UNIXTIME,UNIX_TIMESTAMP,DATE_FORMAT,MONTH,WEEK,HOUR,MINUTE,SECOND'.split(','):
+        if matcher.group(1).upper() in 'AS,COUNT,MAX,MIN,AVG,SUM,GROUP_CONCAT,IF,IFNULL,ABS,CEIL,FLOOR,RAND,PI,POW,EXP,MOD,CONCAT,UPPER,LOWER,LEFT,RIGHT,LRTIM,RTRIM,TRIM,REPEAT,REPLACE,REVERSE,CURDATE,CURTIME,NOW,FROM_UNIXTIME,UNIX_TIMESTAMP,DATE_FORMAT,MONTH,WEEK,HOUR,MINUTE,SECOND'.split(','):
             return matcher.group(1)
         else:
             return '`%s`' % matcher.group(1)
@@ -484,19 +531,26 @@ class DbManager(object):
 
     # 排序
     def order(self, field, order=''):
+        return self._orderAdapter(field, order)
+
+    def _orderAdapter(self, field, order='', directReturn=False):
+        _order = ''
         if type(field) == list:
-            self._order = ' ORDER BY'
+            _order += ' ORDER BY'
             for item in field:
-                self._order += ' %s ASC,' % preg_replace(r'(\w+)', r'`\1`', item)
-            self._order = self._order.rstrip(', ')
+                _order += ' %s ASC,' % preg_replace(r'(\w+)', r'`\1`', item)
+            _order = _order.rstrip(', ')
         elif type(field) == dict:
-            self._order = ' ORDER BY'
+            _order += ' ORDER BY'
             for k, v in field.items():
-                self._order += ' %s %s,' % (preg_replace(r'(\w+)', r'`\1`', k), v.upper())
-            self._order = self._order.rstrip(', ')
-        else:
-            self._order = ' ORDER BY ' + (preg_replace(r'(\w+)', r'`\1`', field) if len(field) > 0 else '') + (
-                " " + order.upper() if len(order) > 0 else '')
+                _order += ' %s %s,' % (preg_replace(r'(\w+)', r'`\1`', k), v.upper())
+            _order = _order.rstrip(', ')
+        elif type(field) == str:
+            if len(field) > 0:
+                _order += ' ORDER BY ' + (preg_replace(r'(\w+)', r'`\1`', field) if len(field) > 0 else '') + (' ' + order.upper() if len(order) > 0 else '')
+        if directReturn:
+            return _order
+        self._order = _order
         return self
 
     # 按字段排序, 如: ORDER BY FIELD(`id`, 1, 9, 8, 4)
@@ -762,7 +816,7 @@ class DbManager(object):
     # 构建SQL语句
     def buildSql(self, sqlType='SELECT'):
         sqlType = sqlType.upper()
-        if sqlType == 'SELECT':
+        if (sqlType == 'SELECT') | (sqlType == 'S'):
             if len(self._field) == 0:
                 self._field = ['*']
             sql = 'SELECT %s FROM %s%s' % (', '.join(self._field), self._table, self._alias)
@@ -774,10 +828,12 @@ class DbManager(object):
                 sql += ''.join(self._inner)
             if len(self._cross) > 0:
                 sql += ''.join(self._cross)
+            if len(self._union) > 0:
+                sql += ''.join(self._union)
             limit = ' LIMIT %d,%d' % (self._offset, self._pagesize) if self._pagesize > 0 else ''
             sql += '%s%s%s%s%s' % (self._where, self._group, self._having, self._order, limit)
             return sql
-        elif sqlType == 'INSERT':
+        elif (sqlType == 'INSERT') | (sqlType == 'I'):
             sql = 'INSERT INTO %s (%s) VALUES ' % (self._table, ', '.join(self._field))
             values = []
             flag = ''
@@ -796,7 +852,7 @@ class DbManager(object):
                 sql += ' ON DUPLICATE KEY UPDATE %s' % ', '.join(updateValues)
             self._setParam = tuple(values)
             return sql
-        elif sqlType == 'UPDATE':
+        elif (sqlType == 'UPDATE') | (sqlType == 'U'):
             values = []
             sql = 'UPDATE %s SET ' % self._table
             for k, v in dict(self._setParam).items():
@@ -819,7 +875,7 @@ class DbManager(object):
                     values.append(item)
             self._setParam = tuple(values)
             return sql
-        elif sqlType == 'DELETE':
+        elif (sqlType == 'DELETE') | (sqlType == 'D'):
             values = []
             sql = 'DELETE' + ' FROM %s%s' % (self._table, self._where)
             if len(self._whereParam) > 0:
@@ -849,7 +905,7 @@ class DbDict(dict):
 
 Db = DbManager(
     host=connections['default'].get('host', 'localhost'),
-    post=connections['default'].get("port", 3306),
+    post=connections['default'].get('port', 3306),
     user=connections['default'].get('user', 'root'),
     password=connections['default'].get('password', ''),
     database=connections['default'].get('database', ''),

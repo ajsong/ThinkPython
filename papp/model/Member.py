@@ -20,6 +20,8 @@ class MemberClass(type):
                     return method(args[0], part.replace('_', ' '))
                 else:
                     return method(part, args[0])
+            elif curMethods[0] == 'field':
+                return method({part: args[0]})
             else:
                 return method(part, args[0])
 
@@ -62,6 +64,10 @@ class MemberClass(type):
     @staticmethod
     def crossJoin(table):
         return MemberClass.connectname().name(MemberClass.tablename()).crossJoin(table)
+
+    @staticmethod
+    def unionAll(table, field=None, where='', group='', having='', order='', offset=0, pagesize=0):
+        return MemberClass._connectname().name(MemberClass._tablename()).unionAll(table, field, where, group, having, order, offset, pagesize)
 
     @staticmethod
     def where(where, param1='', param2=''):
