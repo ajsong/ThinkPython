@@ -1,4 +1,4 @@
-# Developed by @mario 1.8.20220810
+# Developed by @mario 1.9.20220812
 import base64
 import decimal
 import hashlib
@@ -11,6 +11,7 @@ import random
 import re
 import time
 import datetime
+import calendar
 from urllib import parse
 from decimal import *
 from pathlib import Path
@@ -145,6 +146,9 @@ def date(formatStr='%Y-%m-%d %H:%M:%S', timeStamp=None):
         timeStamp = time.localtime()
     else:
         timeStamp = time.localtime(int(timeStamp))
+    if '%t' in formatStr:
+        weekDay, monthCountDay = calendar.monthrange(timeStamp.tm_year, timeStamp.tm_mon)
+        formatStr = formatStr.replace('%t', str(monthCountDay))
     return time.strftime(formatStr, timeStamp)
 
 

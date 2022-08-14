@@ -29,7 +29,7 @@ class DbManager(object):
 
     # 构造函数
     def __init__(self, **kwargs):
-        self.version = '2.2.20220811'
+        self.version = '2.3.20220812'
         self.sqlite = kwargs.get('sqlite', '')
         if len(self.sqlite) > 0:
             self.prefix = ''
@@ -332,12 +332,17 @@ class DbManager(object):
                 _where += '{}('.format(andOr)
                 _where_ = ''
                 for item in where:
+                    field = item[0]
                     value = item[2]
+                    if isinstance(field, DbRaw):
+                        field = field.data
+                    else:
+                        field = preg_replace(r'(\w+)', r'`\1`', field)
                     isRaw = False
                     if isinstance(value, DbRaw):
                         isRaw = True
                         value = value.data
-                    _where_ += ' AND %s' % preg_replace(r'(\w+)', r'`\1`', item[0])
+                    _where_ += ' AND %s' % field
                     where_ = str(item[1]).lower().strip()
                     if where_ in ['=', '>', '>=', '<', '<=', '<>', '!=']:
                         _where_ += where_ if where_ != '!=' else '<>'
@@ -364,20 +369,30 @@ class DbManager(object):
             _where += '{}('.format(andOr)
             _where_ = ''
             for k, v in where.items():
+                field = k
                 value = v
+                if isinstance(field, DbRaw):
+                    field = field.data
+                else:
+                    field = preg_replace(r'(\w+)', r'`\1`', field)
                 isRaw = False
                 if isinstance(value, DbRaw):
                     isRaw = True
                     value = value.data
-                _where_ += ' AND %s=' % preg_replace(r'(\w+)', r'`\1`', k)
+                _where_ += ' AND %s=' % field
                 if isRaw:
                     _where_ += value
                 else:
                     _where_ += self._sybmol
                 self._whereParam.append(str(value))
             _where += _where_.lstrip(' AND ') + ')'
-        elif type(where) == str and len(where) > 0:
-            _where += '%s%s' % (andOr, preg_replace(r'(\w+)', r'`\1`', where))
+        elif isinstance(where, DbRaw) or (type(where) == str and len(where) > 0):
+            field = where
+            if isinstance(field, DbRaw):
+                field = field.data
+            else:
+                field = preg_replace(r'(\w+)', r'`\1`', field)
+            _where += '%s%s' % (andOr, field)
             if len(str(param2).strip()) > 0:
                 value = param2
                 isRaw = False
@@ -405,7 +420,7 @@ class DbManager(object):
                 elif where_ in ['like', 'not like']:
                     _where += ' {} {}'.format(where_.upper(), self._sybmol)
                     self._whereParam.append(str(value).replace('%', '%%'))
-            elif len(str(param1)) > 0:
+            elif isinstance(param1, DbRaw) or len(str(param1)) > 0:
                 value = param1
                 isRaw = False
                 if isinstance(value, DbRaw):
@@ -439,6 +454,23 @@ class DbManager(object):
     # whereDay('add_time', 'today') //查询add_time今天的记录
     def whereDay(self, field, value='today'):
         return self.whereTime(field, '=', date('%Y-%m-%d %H:%M:%S', strtotime(value)))
+
+    def whereMonth(self, field, value=''):
+        if len(value) > 0:
+            timeStamp = strtotime(value)
+            Ym = date('%Y-%m', timeStamp)
+            monthDay = date('%t', timeStamp)
+        else:
+            Ym = date('%Y-%m')
+            monthDay = date('%t')
+        return self.whereTime(field, [Ym+'-1', Ym+'-'+monthDay])
+
+    def whereYear(self, field, value=''):
+        if len(value) > 0:
+            year = date('%Y', strtotime(value))
+        else:
+            year = date('%Y')
+        return self.whereTime(field, [year+'-1-1', year+'-12-31'])
 
     # whereTime('add_time', '2022-7-10') //查询add_time等于指定日期的记录
     # whereTime('add_time', '<=', '2022-7-10') //查询add_time小于或等于指定日期的记录
@@ -480,11 +512,20 @@ class DbManager(object):
     def field(self, field):
         return self._fieldAdapter(field)
 
+    # 不包含字段
+    def withoutField(self, field):
+        _fields = self.getFields().keys()
+        _field = self._fieldAdapter(field, True)
+        fields = []
+        for item in _fields:
+            if '`{}`'.format(item) not in _field:
+                fields.append(item)
+        return self._fieldAdapter(fields)
+
     def _fieldAdapter(self, field, directReturn=False):
         _field = []
-        if type(field) == list:
-            fields = field if len(field) > 0 else ['*']
-            for item in fields:
+        if type(field) == list and len(field) > 0:
+            for item in field:
                 if len(item) > 0:
                     _field.append(preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, item))
         elif type(field) == dict:
@@ -498,13 +539,14 @@ class DbManager(object):
             fields = field.split(',') if len(field) > 0 else ['*']
             for item in fields:
                 _field.append(preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, item.strip()))
-        elif field is None:
-            _field.append('*')
         if directReturn:
             return _field
         if type(self._field) != list:
             self._field = []
         self._field.extend(_field)
+        _fields = []
+        [_fields.append(i) for i in self._field if i not in _fields]
+        self._field = _fields
         return self
 
     @staticmethod
@@ -652,10 +694,45 @@ class DbManager(object):
         column = []
         self._field = []
         self.field(field)
-        list_ = self.select()
-        for item in list_:
+        _list = self.select()
+        for item in _list:
             column.append(item.get(field))
         return column
+
+    # 获取表字段
+    def getFields(self):
+        is_sqlite3 = False
+        if len(self.sqlite) > 0:
+            is_sqlite3 = True
+            desc = self.query('PRAGMA table_info({})'.format(self._table))
+        else:
+            desc = self.query('SHOW COLUMNS FROM {}'.format(self._table))
+            # SHOW FULL COLUMNS FROM table  # 数据表结构(包括注释)
+            # SHOW TABLE STATUS  # 数据表与注释
+            # SHOW TABLE STATUS LIKE 'table'  # 指定数据表
+        fields = {}
+        for item in desc:
+            if preg_match('^(char|varchar|text|tinytext|mediumtext|longtext)', item['type'] if is_sqlite3 else item['Type']):
+                if is_sqlite3:
+                    fields[item['name']] = '' if item['dflt_value'] is None else item['dflt_value']
+                else:
+                    fields[item['Field']] = '' if item['Default'] is None else item['Default']
+            elif ('Field' in item) and (item['Field'] == 'id'):
+                fields[item['Field']] = 0
+            elif ('name' in item) and (item['name'] == 'id'):
+                fields[item['name']] = 0
+            else:
+                if preg_match('^(float|decimal|double|numeric)', item['type'] if is_sqlite3 else item['Type']):
+                    if is_sqlite3:
+                        fields[item['name']] = 0 if item['dflt_value'] is None else float(item['dflt_value'])
+                    else:
+                        fields[item['Field']] = 0 if item['Default'] is None else float(item['Default'])
+                else:
+                    if is_sqlite3:
+                        fields[item['name']] = 0 if item['dflt_value'] is None else int(item['dflt_value'])
+                    else:
+                        fields[item['Field']] = 0 if item['Default'] is None else int(item['Default'])
+        return fields
 
     # 单个数据
     def find(self, field=None):
@@ -672,6 +749,8 @@ class DbManager(object):
             print('{}\n{}\n'.format(sql, self._whereParam))
         self.execute(sql, self._whereParam)
         res = self.cur.fetchone()
+        if res is None:
+            return res
         if self._cache > 0:
             self._cacheSql(sql, res)
         return DbDict(res)
@@ -690,6 +769,8 @@ class DbManager(object):
             print('{}\n{}\n'.format(sql, self._whereParam))
         self.execute(sql, self._whereParam)
         ret = self.cur.fetchall()
+        if len(ret) == 0:
+            return ret
         if self._cache > 0:
             self._cacheSql(sql, ret)
         res = []
@@ -706,7 +787,11 @@ class DbManager(object):
         self._setParam = []
         fields = []
         for k, v in data[0].items():
-            fields.append(k)
+            if len(self._field) > 0:
+                if k in self._field:
+                    fields.append(k)
+            else:
+                fields.append(k)
         self._field = []
         self.field(fields)
         for item in data:
@@ -761,7 +846,7 @@ class DbManager(object):
 
     # 执行原生SQL语句
     def query(self, sql, params=None):
-        if sql.upper().startswith('SELECT '):
+        if sql.upper().startswith('SELECT ') or sql.upper().startswith('PRAGMA ') or sql.upper().startswith('SHOW '):
             self.execute(sql, params)
             ret = self.cur.fetchall()
             res = []
@@ -856,6 +941,9 @@ class DbManager(object):
             values = []
             sql = 'UPDATE %s SET ' % self._table
             for k, v in dict(self._setParam).items():
+                if len(self._field) > 0:
+                    if k not in self._field:
+                        continue
                 value = v
                 isRaw = False
                 if isinstance(value, DbRaw):
@@ -890,6 +978,9 @@ class DbRaw(object):
 
     def __init__(self, data):
         self.data = data
+        # CONVERT(`stringField`, SIGNED)  # 字符串字段转为整数
+        # CONVERT(`stringField`, DECIMAL(10,2))  # 字符串字段转为浮点数
+        # CONVERT(`numberField`, CHAR)  # 数值型字段转为字符串
 
 
 class DbDict(dict):
