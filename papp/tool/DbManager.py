@@ -29,7 +29,7 @@ class DbManager(object):
 
     # 构造函数
     def __init__(self, **kwargs):
-        self.version = '2.3.20220812'
+        self.version = '2.4.20220815'
         self.sqlite = kwargs.get('sqlite', '')
         if len(self.sqlite) > 0:
             self.prefix = ''
@@ -69,7 +69,8 @@ class DbManager(object):
     @staticmethod
     def instance(item):
         if type(item) != dict:
-            raise Exception('Connection param is invalid')
+            print('Connection param is invalid')
+            exit(0)
         sqlite = item.get('sqlite')
         if sqlite is not None:
             return DbManager(sqlite=sqlite)
@@ -87,9 +88,14 @@ class DbManager(object):
         curMethods = uncamelize(name).split('_', 1)
 
         def fn(*args):
+            if len(curMethods) == 1:
+                print('Features under development:\n{}{})'.format(name, str(args).strip(',)')))
+                exit(0)
+            if curMethods[0] not in dir(self):
+                print('{} have no attribute: {}{})'.format(self.__class__.__name__, name, str(args).strip(',)')))
+                exit(0)
             method = getattr(self, curMethods[0])
             part = curMethods[1]
-
             if curMethods[0] == 'where':
                 if preg_match(r'^(not_)?in$', part):
                     return method(args[0], part.replace('_', ' '), args[1])
@@ -117,7 +123,7 @@ class DbManager(object):
         except Exception as e:
             print('Connect database failed:')
             print(str(e))
-            return False
+            exit(0)
 
     # 关闭数据库
     def close(self):
@@ -164,7 +170,7 @@ class DbManager(object):
             print('Execute failed:')
             print(sql)
             print(str(e))
-            return False
+            exit(0)
         if len(self.sqlite) == 0:
             self.close()
         return cnt
@@ -219,7 +225,7 @@ class DbManager(object):
             table = '`{}{}`'.format(self.prefix, table.replace(self.prefix, ''))
         else:
             table = '({})'.format(table)
-        sql = ' LEFT JOIN %s%s' % (table, alias)
+        sql = ' LEFT JOIN {}{}'.format(table, alias)
         if len(on) > 0:
             sql += ' ON ' + preg_replace(r'(\w+)', r'`\1`', on)
         self._left.append(sql)
@@ -241,7 +247,7 @@ class DbManager(object):
             table = '`{}{}`'.format(self.prefix, table.replace(self.prefix, ''))
         else:
             table = '({})'.format(table)
-        sql = ' RIGHT JOIN %s%s' % (table, alias)
+        sql = ' RIGHT JOIN {}{}'.format(table, alias)
         if len(on) > 0:
             sql += ' ON ' + preg_replace(r'(\w+)', r'`\1`', on)
         self._right.append(sql)
@@ -263,7 +269,7 @@ class DbManager(object):
             table = '`{}{}`'.format(self.prefix, table.replace(self.prefix, ''))
         else:
             table = '({})'.format(table)
-        sql = ' INNER JOIN %s%s' % (table, alias)
+        sql = ' INNER JOIN {}{}'.format(table, alias)
         if len(on) > 0:
             sql += ' ON ' + preg_replace(r'(\w+)', r'`\1`', on)
         self._inner.append(sql)
@@ -285,7 +291,7 @@ class DbManager(object):
             table = '`{}{}`'.format(self.prefix, table.replace(self.prefix, ''))
         else:
             table = '({})'.format(table)
-        self._cross.append(', %s%s' % (table, alias))
+        self._cross.append(', {}{}'.format(table, alias))
         return self
 
     # 联合查询
@@ -304,8 +310,8 @@ class DbManager(object):
             group = ' GROUP BY ' + preg_replace(r'(\w+)', r'`\1`', group) if len(group) > 0 else ''
             having = ' HAVING ' + having if len(having) > 0 else ''
             order = self._orderAdapter(order, '', True)
-            limit = ' LIMIT %d,%d' % (offset, pagesize) if pagesize > 0 else ''
-            sql += '%s%s%s%s%s' % (where, group, having, order, limit)
+            limit = ' LIMIT {},{}'.format(offset, pagesize) if pagesize > 0 else ''
+            sql += '{}{}{}{}{}'.format(where, group, having, order, limit)
         else:
             sql = '({})'.format(table)
         self._union.append(' UNION ALL {}'.format(sql))
@@ -342,7 +348,7 @@ class DbManager(object):
                     if isinstance(value, DbRaw):
                         isRaw = True
                         value = value.data
-                    _where_ += ' AND %s' % field
+                    _where_ += ' AND {}'.format(field)
                     where_ = str(item[1]).lower().strip()
                     if where_ in ['=', '>', '>=', '<', '<=', '<>', '!=']:
                         _where_ += where_ if where_ != '!=' else '<>'
@@ -379,7 +385,7 @@ class DbManager(object):
                 if isinstance(value, DbRaw):
                     isRaw = True
                     value = value.data
-                _where_ += ' AND %s=' % field
+                _where_ += ' AND {}='.format(field)
                 if isRaw:
                     _where_ += value
                 else:
@@ -392,7 +398,7 @@ class DbManager(object):
                 field = field.data
             else:
                 field = preg_replace(r'(\w+)', r'`\1`', field)
-            _where += '%s%s' % (andOr, field)
+            _where += '{}{}'.format(andOr, field)
             if len(str(param2).strip()) > 0:
                 value = param2
                 isRaw = False
@@ -532,9 +538,9 @@ class DbManager(object):
             for k, v in field.items():
                 if len(k) > 0 or len(v) > 0:
                     if len(k) > 0:
-                        _field.append('%s AS `%s`' % (preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, k), v) if len(v) > 0 else k)
+                        _field.append('{} AS `{}`'.format(preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, k), v) if len(v) > 0 else k)
                     else:
-                        _field.append("'' AS `%s`" % v)
+                        _field.append("'' AS `{}`".format(v))
         elif type(field) == str:
             fields = field.split(',') if len(field) > 0 else ['*']
             for item in fields:
@@ -554,11 +560,11 @@ class DbManager(object):
         if matcher.group(1).upper() in 'AS,COUNT,MAX,MIN,AVG,SUM,GROUP_CONCAT,IF,IFNULL,ABS,CEIL,FLOOR,RAND,PI,POW,EXP,MOD,CONCAT,UPPER,LOWER,LEFT,RIGHT,LRTIM,RTRIM,TRIM,REPEAT,REPLACE,REVERSE,CURDATE,CURTIME,NOW,FROM_UNIXTIME,UNIX_TIMESTAMP,DATE_FORMAT,MONTH,WEEK,HOUR,MINUTE,SECOND'.split(','):
             return matcher.group(1)
         else:
-            return '`%s`' % matcher.group(1)
+            return '`{}`'.format(matcher.group(1))
 
     # 去重分组
     def distinct(self, field):
-        self._field = ['DISTINCT `%s`' % field]
+        self._field = ['DISTINCT `{}`'.format(field)]
         return self
 
     # 分组(聚合)
@@ -580,12 +586,12 @@ class DbManager(object):
         if type(field) == list:
             _order += ' ORDER BY'
             for item in field:
-                _order += ' %s ASC,' % preg_replace(r'(\w+)', r'`\1`', item)
+                _order += ' {} ASC,'.format(preg_replace(r'(\w+)', r'`\1`', item))
             _order = _order.rstrip(', ')
         elif type(field) == dict:
             _order += ' ORDER BY'
             for k, v in field.items():
-                _order += ' %s %s,' % (preg_replace(r'(\w+)', r'`\1`', k), v.upper())
+                _order += ' {} {},'.format(preg_replace(r'(\w+)', r'`\1`', k), v.upper())
             _order = _order.rstrip(', ')
         elif type(field) == str:
             if len(field) > 0:
@@ -634,12 +640,12 @@ class DbManager(object):
 
     # 递增(update用)
     def inc(self, field, step=1):
-        self._setParam = {field: DbRaw('%s + %d' % (preg_replace(r'(\w+)', r'`\1`', field), step) if type(step) == int else '%s + %f' % (preg_replace(r'(\w+)', r'`\1`', field), step))}
+        self._setParam = {field: DbRaw('{}+{}'.format(preg_replace(r'(\w+)', r'`\1`', field), step))}
         return self
 
     # 递减(update用)
     def dec(self, field, step=1):
-        self._setParam = {field: DbRaw('%s - %d' % (preg_replace(r'(\w+)', r'`\1`', field), step) if type(step) == int else '%s - %f' % (preg_replace(r'(\w+)', r'`\1`', field), step))}
+        self._setParam = {field: DbRaw('{}-{}'.format(preg_replace(r'(\w+)', r'`\1`', field), step))}
         return self
 
     # 记录是否存在
@@ -652,33 +658,33 @@ class DbManager(object):
             self._field = ['COUNT(*) as db_tmp']
         else:
             if 'DISTINCT ' in ''.join(self._field):
-                self._field = ['COUNT(%s) as db_tmp' % ''.join(self._field)]
+                self._field = ['COUNT({}) as db_tmp'.format(''.join(self._field))]
         data = self.find()
         return data.get('db_tmp', 0)
 
     # 最大值
     def max(self, field):
-        self._field = ['MAX(%s) as db_tmp' % field]
+        self._field = ['MAX({}) as db_tmp'.format(field)]
         return self.count()
 
     # 最小值
     def min(self, field):
-        self._field = ['MIN(%s) as db_tmp' % field]
+        self._field = ['MIN({}) as db_tmp'.format(field)]
         return self.count()
 
     # 平均值
     def avg(self, field):
-        self._field = ['AVG(%s) as db_tmp' % field]
+        self._field = ['AVG({}) as db_tmp'.format(field)]
         return self.count()
 
     # 集合值
     def sum(self, field):
-        self._field = ['SUM(%s) as db_tmp' % field]
+        self._field = ['SUM({}) as db_tmp'.format(field)]
         return self.count()
 
     # 分组连接
     def groupConcat(self, field):
-        self._field = ['GROUP_CONCAT(%s) as db_tmp' % preg_replace(r'(\w+)', r'`\1`', field)]
+        self._field = ['GROUP_CONCAT({}) as db_tmp'.format(preg_replace(r'(\w+)', r'`\1`', field))]
         return self.count()
 
     # 数据字段值
@@ -875,10 +881,10 @@ class DbManager(object):
         cacheDir = Path(runtime_path() + '/sql')
         if res is None:
             if cacheDir.is_dir():
-                cacheFile = Path('%s/%s' % (cacheDir, filename))
+                cacheFile = Path('{}/{}'.format(cacheDir, filename))
                 if cacheFile.is_file():
                     if int(time.time()) - int(os.path.getmtime(cacheFile)) < self._cache:
-                        fo = open('%s' % cacheFile, 'r')
+                        fo = open('{}'.format(cacheFile), 'r')
                         data = fo.read()
                         fo.close()
                         ret = json_decode(data)
@@ -891,9 +897,9 @@ class DbManager(object):
                             return res
             return None
         if not cacheDir.is_dir():
-            os.makedirs('%s' % cacheDir)
-        cacheFile = Path('%s/%s' % (cacheDir, filename))
-        fo = open('%s' % cacheFile, 'w+')
+            os.makedirs('{}'.format(cacheDir))
+        cacheFile = Path('{}/{}'.format(cacheDir, filename))
+        fo = open('{}'.format(cacheFile), 'w+')
         fo.write(json_encode(res))
         fo.close()
         return None
@@ -904,7 +910,7 @@ class DbManager(object):
         if (sqlType == 'SELECT') | (sqlType == 'S'):
             if len(self._field) == 0:
                 self._field = ['*']
-            sql = 'SELECT %s FROM %s%s' % (', '.join(self._field), self._table, self._alias)
+            sql = 'SELECT {} FROM {}{}'.format(', '.join(self._field), self._table, self._alias)
             if len(self._left) > 0:
                 sql += ''.join(self._left)
             if len(self._right) > 0:
@@ -915,11 +921,11 @@ class DbManager(object):
                 sql += ''.join(self._cross)
             if len(self._union) > 0:
                 sql += ''.join(self._union)
-            limit = ' LIMIT %d,%d' % (self._offset, self._pagesize) if self._pagesize > 0 else ''
-            sql += '%s%s%s%s%s' % (self._where, self._group, self._having, self._order, limit)
+            limit = ' LIMIT {},{}'.format(self._offset, self._pagesize) if self._pagesize > 0 else ''
+            sql += '{}{}{}{}{}'.format(self._where, self._group, self._having, self._order, limit)
             return sql
         elif (sqlType == 'INSERT') | (sqlType == 'I'):
-            sql = 'INSERT INTO %s (%s) VALUES ' % (self._table, ', '.join(self._field))
+            sql = 'INSERT INTO {} ({}) VALUES '.format(self._table, ', '.join(self._field))
             values = []
             flag = ''
             for items in self._setParam:
@@ -933,13 +939,13 @@ class DbManager(object):
             if self._replace:
                 updateValues = []
                 for item in self._field:
-                    updateValues.append('%s=VALUES(%s)' % (item, item))
-                sql += ' ON DUPLICATE KEY UPDATE %s' % ', '.join(updateValues)
+                    updateValues.append('{0}=VALUES({0})'.format(item))
+                sql += ' ON DUPLICATE KEY UPDATE {}'.format(', '.join(updateValues))
             self._setParam = tuple(values)
             return sql
         elif (sqlType == 'UPDATE') | (sqlType == 'U'):
             values = []
-            sql = 'UPDATE %s SET ' % self._table
+            sql = 'UPDATE {} SET '.format(self._table)
             for k, v in dict(self._setParam).items():
                 if len(self._field) > 0:
                     if k not in self._field:
@@ -957,7 +963,7 @@ class DbManager(object):
                     values.append(value)
                 sql += ', '
             sql = sql.rstrip(', ')
-            sql += '%s' % self._where
+            sql += str(self._where)
             if len(self._whereParam) > 0:
                 for item in self._whereParam:
                     values.append(item)
@@ -965,12 +971,112 @@ class DbManager(object):
             return sql
         elif (sqlType == 'DELETE') | (sqlType == 'D'):
             values = []
-            sql = 'DELETE' + ' FROM %s%s' % (self._table, self._where)
+            sql = 'DELETE' + ' FROM {}{}'.format(self._table, self._where)
             if len(self._whereParam) > 0:
                 for item in self._whereParam:
                     values.append(item)
             self._setParam = tuple(values)
             return sql
+
+    # 是否存在表
+    def tableExist(self, table):
+        # ALTER TABLE table ENGINE=InnoDB  # 修改数据表引擎为InnoDB
+        table = preg_replace('^'+self.prefix, '', table)
+        has_table = False
+        if len(self.sqlite) > 0:
+            sql = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{}'".format(self.prefix + table.replace(self.prefix, ''))
+        else:
+            sql = "SHOW TABLES LIKE '{}'".format(self.prefix + table.replace(self.prefix, ''))
+        res = self.query(sql)
+        if len(res) > 0:
+            has_table = True
+        return has_table
+
+    # 创建数据表, 支持sqlite3
+    def tableCreate(self, tables, re_create=False):
+        """
+        Db.tableCreate({
+            'table': {
+                'table_engine': 'InnoDB',
+                'table_auto_increment': 10,
+                'table_comment': '表注释',
+                'id': {'type': 'key'},
+                'name': {'type': 'varchar(255)', 'comment': '名称', 'charset': 'utf8mb4'},
+                'price': {'type': 'decimal(10,2)', 'default': '0.00', 'comment': '价格'},
+                'content': {'type': 'text', 'comment': '内容'},
+                'clicks': {'type': 'int', 'comment': '点击数', 'index': 'clicks'},
+                'add_time': {'type': 'int', 'comment': '添加时间'}
+            }
+        });
+        """
+        sql = ''
+        if type(tables) == str:
+            sql = tables
+        else:
+            for table_name, table_info in dict(tables).items():
+                table_name = self.prefix + table_name.replace(self.prefix, '')
+                if re_create is False and self.tableExist(table_name):
+                    continue
+                key_field = ''
+                field_sql = ''
+                index = []  # 索引
+                self.tableRemove(table_name)
+                sql += 'CREATE TABLE `{}` (\n'.format(table_name)
+                for field_name, field_info in dict(table_info).items():
+                    if field_name in ['table_engine', 'table_auto_increment', 'table_comment']:
+                        continue
+                    field_sql += '`{}`'.format(field_name)
+                    if 'type' in field_info:
+                        if field_info['type'] == 'key':
+                            key_field = field_name
+                            field_sql += ' integer NOT NULL PRIMARY KEY AUTOINCREMENT' if len(self.sqlite) > 0 else ' int(11) NOT NULL AUTO_INCREMENT'
+                        elif len(self.sqlite) > 0 and 'varchar' in field_info['type'].lower():
+                            field_sql += ' text'
+                        elif len(self.sqlite) > 0 and 'int' in field_info['type'].lower():
+                            field_sql += ' integer'
+                        elif len(self.sqlite) > 0 and 'decimal' in field_info['type'].lower():
+                            field_sql += ' numeric'
+                        else:
+                            field_sql += ' ' + field_info['type'].lower()
+                    else:
+                        field_sql += ' text' if len(self.sqlite) > 0 else ' varchar(255)'
+                    if len(self.sqlite) == 0 and 'charset' in field_info:
+                        field_sql += ' CHARACTER SET ' + field_info['charset'].lower()
+                    if 'default' in field_info:
+                        field_sql += " DEFAULT '" + field_info['default'] + "'"
+                    elif 'type' in field_info and ('int' in field_info['type'].lower() or 'decimal' in field_info['type'].lower()):
+                        field_sql += " DEFAULT '0.00'" if 'decimal' in field_info['type'].lower() else " DEFAULT '0'"
+                    elif 'type' in field_info and 'varchar' in field_info['type'].lower():
+                        field_sql += ' DEFAULT NULL'
+                    if len(self.sqlite) == 0 and 'index' in field_info:
+                        index.append({'name': field_info['index'], 'column': field_name})
+                    if len(self.sqlite) == 0 and 'comment' in field_info:
+                        field_sql += " COMMENT '" + field_info['comment'].replace("'", "\'") + "'"
+                    field_sql += ',\n'
+                if len(self.sqlite) == 0 and len(key_field) > 0:
+                    field_sql += 'PRIMARY KEY (`{}`)'.format(key_field)
+                field_sql = field_sql.strip().strip(',')
+                if len(index) > 0:
+                    for item in index:
+                        field_sql += ',\n' + 'KEY `' + item['name'] + '` (`' + item['column'] + '`)'
+                sql += field_sql.strip().strip(',') + '\n'
+                sql += ')'
+                if len(self.sqlite) == 0:
+                    engine = table_info['table_engine'] if 'table_engine' in table_info else 'InnoDB'
+                    sql += ' ENGINE={}'.format(engine)
+                    if 'table_auto_increment' in table_info:
+                        sql += ' AUTO_INCREMENT={}'.format(table_info['table_auto_increment'])
+                    sql += ' DEFAULT CHARSET=utf8'
+                    if 'table_comment' in table_info:
+                        sql += " COMMENT='" + table_info['table_comment'].replace("'", "\'") + "'"
+                sql += ';'
+        if len(sql):
+            return self.query(sql)
+        return self
+
+    # 删除表
+    def tableRemove(self, table):
+        return self.query('DROP TABLE IF EXISTS `{}`'.format(table))
 
 
 class DbRaw(object):
