@@ -1,4 +1,4 @@
-# Developed by @mario 1.9.20220812
+# Developed by @mario 2.0.20220815
 import base64
 import decimal
 import hashlib
@@ -360,12 +360,12 @@ def random_str(length=4):
 
 # 下划线转驼峰, small:小驼峰
 def camelize(value, small=False, delimiter='_'):
-    return re.sub(r'(%s\w)' % delimiter, lambda x: x.group(1)[1].upper(), ('' if small else delimiter) + value)
+    return re.sub(r'({}\w)'.format(delimiter), lambda x: x.group(1)[1].upper(), ('' if small else delimiter) + value)
 
 
 # 驼峰转下划线
 def uncamelize(value, delimiter='_'):
-    return re.sub(re.compile(r'([a-z]|\d)([A-Z])'), r'\1%s\2' % delimiter, value).lower()
+    return re.sub(re.compile(r'([a-z]|\d)([A-Z])'), r'\1{}\2'.format(delimiter), value).lower()
 
 
 # 把列表分割成小列表
@@ -383,10 +383,10 @@ def write_file(content, filename, path=''):
         path = runtime_path()
     if not Path(path).is_dir():
         os.makedirs(path)
-    file = Path('%s/%s' % (path, filename))
+    file = Path('{}/{}'.format(path, filename))
     if type(content) != str and type(content) != int and type(content) != float and type(content) != complex and type(content) != bool:
         content = json_encode(content)
-    fo = open('%s' % file, 'w')
+    fo = open('{}'.format(file), 'w')
     fo.write(content)
     fo.close()
 
@@ -396,10 +396,10 @@ def write_log(content, filename='log.txt'):
     path = runtime_path()
     if not Path(path).is_dir():
         os.makedirs(path)
-    file = Path('%s/%s' % (path, filename))
+    file = Path('{}/{}'.format(path, filename))
     if type(content) != str and type(content) != int and type(content) != float and type(content) != complex and type(content) != bool:
         content = json_encode(content)
-    fo = open('%s' % file, 'a+')
+    fo = open('{}'.format(file), 'a+')
     fo.write(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()) + '\n' + content + '\n\n')
     fo.close()
 
@@ -412,11 +412,11 @@ def write_error(content):
 # 计时器, 开始时调用 start = timing(), 结束时调用 timing(start)
 def timing(start=0):
     if start == 0:
-        print("start: %s" % date())
+        print('start: {}'.format(date()))
         return timestamp()
-    print("end: %s" % date())
+    print('end: {}'.format(date()))
     between = timestamp() - start
-    print("共消耗 %.1f 分钟" % float(between/60))
+    print('共消耗 {:.1f} 分钟'.format(float(between/60)))
 
 
 # 区块链数量去精度
