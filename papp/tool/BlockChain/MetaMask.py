@@ -170,7 +170,7 @@ class MetaMask(object):
         private_key = self.privateKey
         if len(private_key) == 0:
             try:
-                private_key = ethParam['private_key']
+                private_key = Config.ethParam['private_key']
             except Exception as ex:
                 print(str(ex))
                 exit(0)

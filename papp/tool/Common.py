@@ -1,4 +1,4 @@
-# Developed by @mario 2.0.20220815
+# Developed by @mario 2.1.20220816
 import base64
 import decimal
 import hashlib
@@ -53,18 +53,18 @@ def random_float(minNum=0, maxNum=1):
 
 
 # 正则匹配
-def preg_match(pattern, string):
-    return re.compile(pattern).match(str(string)) is not None
+def preg_match(pattern, string, flags=0):
+    return re.compile(pattern, flags).match(str(string)) is not None
 
 
 # 正则替换
-def preg_replace(pattern, repl, string):
-    return re.compile(pattern).sub(repl, str(string))
+def preg_replace(pattern, repl, string, flags=0):
+    return re.compile(pattern, flags).sub(repl, str(string))
 
 
 # 正则分割
-def preg_split(pattern, string):
-    return re.compile(pattern).split(str(string))
+def preg_split(pattern, string, flags=0):
+    return re.compile(pattern, flags).split(str(string))
 
 
 # 获取文件内容
@@ -466,7 +466,7 @@ def getMethod(clazz, method):
 def requestUrl(method, url, data=None, returnJson=False, postJson=False, headers=None, proxies=None):
     method = method.upper()
     if url.startswith('https:') is False and url.startswith('http:') is False:
-        url = apiUrl.rstrip('/') + '/' + url.lstrip('/')
+        url = Config.apiUrl.rstrip('/') + '/' + url.lstrip('/')
     if headers is None:
         headers = {}
     if postJson:

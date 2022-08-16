@@ -39,10 +39,10 @@ class Core(object):
         if len(connection) == 0:
             self.db = Db
             return Db
-        if connection not in connections.keys():
+        if connection not in Config.connections.keys():
             print('Connections have no parameter: ' + connection)
             exit(0)
-        db = DbManager.instance(connections[connection])
+        db = DbManager.instance(Config.connections[connection])
         self.db = db
         return db
 
@@ -52,130 +52,146 @@ class Core(object):
         if '{}__table'.format(self.__class__.__name__) in dir(self):
             return getattr(self, '{}__table'.format(self.__class__.__name__))
         file = importlib.import_module(self.__module__).__file__
-        return uncamelize(file.replace(os.path.dirname(file) + '/', '').replace('.py', ''))
+        return self.db.prefix + uncamelize(file.replace(os.path.dirname(file) + '/', '').replace('.py', ''))
+
+    def _autotime(self, attributeType):
+        field = ''
+        if attributeType == 0:
+            if '{}__timeFormat'.format(self.__class__.__name__) in dir(self):
+                field = getattr(self, '{}__timeFormat'.format(self.__class__.__name__))
+        else:
+            if '{}__{}'.format(self.__class__.__name__, 'createTime' if attributeType == 1 else 'updateTime') in dir(self):
+                field = getattr(self, '{}__{}'.format(self.__class__.__name__, 'createTime' if attributeType == 1 else 'updateTime'))
+        return field
+
+    def _setDb(self):
+        return self._connectname().table(self._tablename()).timeFormat(self._autotime(0)).createTime(self._autotime(1)).updateTime(self._autotime(2))
 
     def alias(self, alias):
-        return self._connectname().table(self._tablename()).alias(alias)
+        return self._setDb().alias(alias)
 
     def leftJoin(self, table, on):
-        return self._connectname().table(self._tablename()).leftJoin(table, on)
+        return self._setDb().leftJoin(table, on)
 
     def rightJoin(self, table, on):
-        return self._connectname().table(self._tablename()).rightJoin(table, on)
+        return self._setDb().rightJoin(table, on)
 
     def innerJoin(self, table, on):
-        return self._connectname().table(self._tablename()).innerJoin(table, on)
+        return self._setDb().innerJoin(table, on)
 
     def crossJoin(self, table):
-        return self._connectname().table(self._tablename()).crossJoin(table)
+        return self._setDb().crossJoin(table)
 
     def unionAll(self, table, field=None, where='', group='', having='', order='', offset=0, pagesize=0):
-        return self._connectname().table(self._tablename()).unionAll(table, field, where, group, having, order, offset, pagesize)
+        return self._setDb().unionAll(table, field, where, group, having, order, offset, pagesize)
 
     def where(self, where, param1='', param2=''):
-        return self._connectname().table(self._tablename()).where(where, param1, param2)
+        return self._setDb().where(where, param1, param2)
 
     def whereOr(self, where, param1='', param2=''):
-        return self._connectname().table(self._tablename()).whereOr(where, param1, param2)
+        return self._setDb().whereOr(where, param1, param2)
 
     def whereDay(self, field, value='today'):
-        return self._connectname().table(self._tablename()).whereDay(field, value)
+        return self._setDb().whereDay(field, value)
 
     def whereMonth(self, field, value=''):
-        return self._connectname().table(self._tablename()).whereMonth(field, value)
+        return self._setDb().whereMonth(field, value)
 
     def whereYear(self, field, value=''):
-        return self._connectname().table(self._tablename()).whereYear(field, value)
+        return self._setDb().whereYear(field, value)
 
     def whereTime(self, field, operator, value=''):
-        return self._connectname().table(self._tablename()).whereTime(field, operator, value)
+        return self._setDb().whereTime(field, operator, value)
 
     def field(self, field):
-        return self._connectname().table(self._tablename()).field(field)
+        return self._setDb().field(field)
 
     def withoutField(self, field):
-        return self._connectname().table(self._tablename()).withoutField(field)
+        return self._setDb().withoutField(field)
 
     def distinct(self, field):
-        return self._connectname().table(self._tablename()).distinct(field)
+        return self._setDb().distinct(field)
 
     def group(self, group):
-        return self._connectname().table(self._tablename()).group(group)
+        return self._setDb().group(group)
 
     def having(self, having):
-        return self._connectname().table(self._tablename()).having(having)
+        return self._setDb().having(having)
 
     def order(self, field, order=''):
-        return self._connectname().table(self._tablename()).order(field, order)
+        return self._setDb().order(field, order)
 
     def orderField(self, field, value):
-        return self._connectname().table(self._tablename()).orderField(field, value)
+        return self._setDb().orderField(field, value)
 
     def limit(self, offset, pagesize=-100):
-        return self._connectname().table(self._tablename()).limit(offset, pagesize)
+        return self._setDb().limit(offset, pagesize)
 
     def page(self, page, pagesize):
-        return self._connectname().table(self._tablename()).page(page, pagesize)
+        return self._setDb().page(page, pagesize)
 
     def cache(self, cache):
-        return self._connectname().table(self._tablename()).cache(cache)
+        return self._setDb().cache(cache)
 
     def replace(self, replace=True):
-        return self._connectname().table(self._tablename()).replace(replace)
+        return self._setDb().replace(replace)
 
     def fetchSql(self, fetchSql=True):
-        return self._connectname().table(self._tablename()).fetchSql(fetchSql)
+        return self._setDb().fetchSql(fetchSql)
 
     def inc(self, field, step=1):
-        return self._connectname().table(self._tablename()).inc(field, step)
+        return self._setDb().inc(field, step)
 
     def dec(self, field, step=1):
-        return self._connectname().table(self._tablename()).dec(field, step)
+        return self._setDb().dec(field, step)
 
     def exist(self):
-        return self._connectname().table(self._tablename()).exist()
+        return self._setDb().exist()
 
     def count(self):
-        return self._connectname().table(self._tablename()).count()
+        return self._setDb().count()
 
     def max(self, field):
-        return self._connectname().table(self._tablename()).max(field)
+        return self._setDb().max(field)
 
     def min(self, field):
-        return self._connectname().table(self._tablename()).min(field)
+        return self._setDb().min(field)
 
     def avg(self, field):
-        return self._connectname().table(self._tablename()).avg(field)
+        return self._setDb().avg(field)
 
     def sum(self, field):
-        return self._connectname().table(self._tablename()).sum(field)
+        return self._setDb().sum(field)
 
     def groupConcat(self, field):
-        return self._connectname().table(self._tablename()).groupConcat(field)
+        return self._setDb().groupConcat(field)
 
     def value(self, field):
-        return self._connectname().table(self._tablename()).value(field)
+        return self._setDb().value(field)
 
     def column(self, field):
-        return self._connectname().table(self._tablename()).column(field)
+        return self._setDb().column(field)
 
     def getFields(self):
-        return self._connectname().table(self._tablename()).getFields()
+        return self._setDb().getFields()
+
+    def getFieldsType(self):
+        return self._setDb().getFieldsType()
 
     def find(self, field=None):
-        return self._connectname().table(self._tablename()).find(field)
+        return self._setDb().find(field)
 
     def select(self, field=None):
-        return self._connectname().table(self._tablename()).select(field)
+        return self._setDb().select(field)
 
     def insert(self, data):
-        return self._connectname().table(self._tablename()).insert(data)
+        return self._setDb().insert(data)
 
     def update(self, data=None):
-        return self._connectname().table(self._tablename()).update(data)
+        return self._setDb().update(data)
 
     def delete(self, where=None):
-        return self._connectname().table(self._tablename()).delete(where)
+        return self._setDb().delete(where)
 
     def buildSql(self, sqlType='SELECT'):
-        return self._connectname().table(self._tablename()).buildSql(sqlType)
+        return self._setDb().buildSql(sqlType)

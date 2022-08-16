@@ -20,16 +20,21 @@ class DbManager(object):
     _offset = 0
     _pagesize = 0
     _cache = 0
+    _createTime = ''
+    _updateTime = ''
+    _timeFormat = ''
     _whereParam = []
     _setParam = []
     _replace = False
     _fetchSql = False
+    _fieldsType = None
 
     _sybmol = '%s'
+    _datetime_field = 'create_time,update_time'
 
     # 构造函数
     def __init__(self, **kwargs):
-        self.version = '2.4.20220815'
+        self.version = '2.5.20220816'
         self.sqlite = kwargs.get('sqlite', '')
         if len(self.sqlite) > 0:
             self.prefix = ''
@@ -148,10 +153,14 @@ class DbManager(object):
         self._offset = 0
         self._pagesize = 0
         self._cache = 0
+        self._createTime = ''
+        self._updateTime = ''
+        self._timeFormat = ''
         self._whereParam = []
         self._setParam = []
         self._replace = False
         self._fetchSql = False
+        self._fieldsType = None
 
     # 执行SQL方法
     def execute(self, sql, params=None, exe_many=False):
@@ -175,32 +184,26 @@ class DbManager(object):
             self.close()
         return cnt
 
-    # 表名(自动加前缀)
+    # 表名(自动加表前缀)
     def name(self, name):
         return self.table(self.prefix + name.replace(self.prefix, ''))
 
     # 表名
     def table(self, table):
-        restore = True
+        self.restore()
         if type(table) == dict:
             tables = table
             key = tables.keys()[0]
             table = key
             self.alias(tables.get(key))
-        if re.compile(r'^!?\w+(\s+\w+)?$').match(str(table)) is not None:
+        if re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
             if ' ' in table:
                 tables = re.sub(r'\s+', ' ', table).split(' ')
                 table = tables[0]
                 self.alias(tables[1])
-            if table.startswith('!'):  # 表名前加!代表不restore
-                restore = False
-                table = '`{}`'.format(table[1:])
-            else:
-                table = '`{}`'.format(table)
+            table = '`{}`'.format(table)
         else:
             table = '({})'.format(table)
-        if restore:
-            self.restore()
         self._table = table
         return self
 
@@ -638,6 +641,21 @@ class DbManager(object):
         self._fetchSql = fetchSql
         return self
 
+    # 自动写入创建时间
+    def createTime(self, field):
+        self._createTime = field
+        return self
+
+    # 自动写入更新时间
+    def updateTime(self, field):
+        self._updateTime = field
+        return self
+
+    # 自动格式化时间的格式
+    def timeFormat(self, formatStr):
+        self._timeFormat = formatStr
+        return self
+
     # 递增(update用)
     def inc(self, field, step=1):
         self._setParam = {field: DbRaw('{}+{}'.format(preg_replace(r'(\w+)', r'`\1`', field), step))}
@@ -718,26 +736,77 @@ class DbManager(object):
             # SHOW TABLE STATUS LIKE 'table'  # 指定数据表
         fields = {}
         for item in desc:
-            if preg_match('^(char|varchar|text|tinytext|mediumtext|longtext)', item['type'] if is_sqlite3 else item['Type']):
+            if preg_match('^(char|varchar|text|tinytext|mediumtext|longtext)', item['type'] if is_sqlite3 else item['Type'], re.I):
                 if is_sqlite3:
-                    fields[item['name']] = '' if item['dflt_value'] is None else item['dflt_value']
+                    fields[item['name']] = '' if item['dflt_value'] is None else item['dflt_value'].strip("'")
                 else:
                     fields[item['Field']] = '' if item['Default'] is None else item['Default']
+            elif preg_match('^(datetime|date|time|timestamp)', item['type'] if is_sqlite3 else item['Type'], re.I):
+                if is_sqlite3:
+                    fields[item['name']] = item['dflt_value'].strip("'")
+                else:
+                    fields[item['Field']] = item['Default']
             elif ('Field' in item) and (item['Field'] == 'id'):
                 fields[item['Field']] = 0
             elif ('name' in item) and (item['name'] == 'id'):
                 fields[item['name']] = 0
             else:
-                if preg_match('^(float|decimal|double|numeric)', item['type'] if is_sqlite3 else item['Type']):
+                if preg_match('^(float|decimal|double|numeric)', item['type'] if is_sqlite3 else item['Type'], re.I):
                     if is_sqlite3:
-                        fields[item['name']] = 0 if item['dflt_value'] is None else float(item['dflt_value'])
+                        fields[item['name']] = 0 if item['dflt_value'] is None else float(item['dflt_value'].strip("'"))
                     else:
                         fields[item['Field']] = 0 if item['Default'] is None else float(item['Default'])
                 else:
                     if is_sqlite3:
-                        fields[item['name']] = 0 if item['dflt_value'] is None else int(item['dflt_value'])
+                        fields[item['name']] = 0 if item['dflt_value'] is None else int(item['dflt_value'].strip("'"))
                     else:
                         fields[item['Field']] = 0 if item['Default'] is None else int(item['Default'])
+        return fields
+
+    # 获取表字段类型
+    def getFieldsType(self):
+        is_sqlite3 = False
+        if len(self.sqlite) > 0:
+            is_sqlite3 = True
+            desc = self.query('PRAGMA table_info({})'.format(self._table))
+        else:
+            desc = self.query('SHOW COLUMNS FROM {}'.format(self._table))
+        fields = {}
+        for item in desc:
+            field = {}
+            if preg_match('^(char|varchar|text|tinytext|mediumtext|longtext)', item['type'] if is_sqlite3 else item['Type'], re.I):
+                if is_sqlite3:
+                    field['default'] = '' if item['dflt_value'] is None else item['dflt_value'].strip("'")
+                else:
+                    field['default'] = '' if item['Default'] is None else item['Default']
+                field['type'] = 'text'
+            elif preg_match('^(datetime|date|time|timestamp)', item['type'] if is_sqlite3 else item['Type'], re.I):
+                if is_sqlite3:
+                    field['default'] = item['dflt_value'].strip("'")
+                    field['type'] = item['type']
+                else:
+                    field['default'] = item['Default']
+                    field['type'] = item['Type']
+            elif preg_match('^(float|decimal|double|numeric)', item['type'] if is_sqlite3 else item['Type'], re.I):
+                if is_sqlite3:
+                    field['default'] = 0 if item['dflt_value'] is None else float(item['dflt_value'].strip("'"))
+                else:
+                    field['default'] = 0 if item['Default'] is None else float(item['Default'])
+                field['type'] = 'float'
+            else:
+                if is_sqlite3:
+                    field['default'] = 0 if item['dflt_value'] is None else int(item['dflt_value'].strip("'"))
+                else:
+                    field['default'] = 0 if item['Default'] is None else int(item['Default'])
+                field['type'] = 'int'
+            if is_sqlite3:
+                field['null'] = 1 if item['notnull'] == 0 else 0
+            else:
+                field['null'] = 1 if item['Null'] == 'YES' else 0
+            if is_sqlite3:
+                fields[item['name']] = field
+            else:
+                fields[item['Field']] = field
         return fields
 
     # 单个数据
@@ -759,7 +828,7 @@ class DbManager(object):
             return res
         if self._cache > 0:
             self._cacheSql(sql, res)
-        return DbDict(res)
+        return DbDict(self._autoFormatTime(res))
 
     # 数据集
     def select(self, field=None):
@@ -781,7 +850,7 @@ class DbManager(object):
             self._cacheSql(sql, ret)
         res = []
         for item in ret:
-            res.append(DbDict(item))
+            res.append(DbDict(self._autoFormatTime(item)))
         return res
 
     # 新增并返回新增ID, data: 字典类型{} 数组类型[{}]
@@ -852,6 +921,8 @@ class DbManager(object):
 
     # 执行原生SQL语句
     def query(self, sql, params=None):
+        if params is None:
+            params = tuple()
         if sql.upper().startswith('SELECT ') or sql.upper().startswith('PRAGMA ') or sql.upper().startswith('SHOW '):
             self.execute(sql, params)
             ret = self.cur.fetchall()
@@ -889,11 +960,11 @@ class DbManager(object):
                         fo.close()
                         ret = json_decode(data)
                         if type(ret) == dict:
-                            return DbDict(ret)
+                            return DbDict(self._autoFormatTime(ret))
                         else:
                             res = []
                             for item in ret:
-                                res.append(DbDict(item))
+                                res.append(DbDict(self._autoFormatTime(item)))
                             return res
             return None
         if not cacheDir.is_dir():
@@ -903,6 +974,38 @@ class DbManager(object):
         fo.write(json_encode(res))
         fo.close()
         return None
+
+    # 自动格式化时间
+    def _autoFormatTime(self, item):
+        if type(Config.auto_timestamp) == bool and Config.auto_timestamp is False:
+            return item
+        if self._fieldsType is None:
+            if type(Config.auto_timestamp) == str:
+                self._fieldsType = Config.auto_timestamp
+            else:
+                self._fieldsType = self.getFieldsType()
+        times = Config.datetime_field
+        if len(times) == 0:
+            times = self._datetime_field
+        times = times.split(',')
+        if len(self._createTime) == 0:
+            self._createTime = times[0]
+        if len(self._updateTime) == 0:
+            self._updateTime = times[1] if len(times) > 1 else 'update_time'
+        datetime_format = self._timeFormat if len(self._timeFormat) > 0 else Config.datetime_format
+        if self._createTime in item:
+            if type(self._fieldsType) == str:
+                if self._fieldsType == 'int':
+                    item[self._createTime] = date(datetime_format, item[self._createTime])
+            elif self._fieldsType[self._createTime]['type'] == 'int':
+                item[self._createTime] = date(datetime_format, item[self._createTime])
+        if self._updateTime in item:
+            if type(self._fieldsType) == str:
+                if self._fieldsType == 'int':
+                    item[self._updateTime] = date(datetime_format, item[self._updateTime])
+            elif self._fieldsType[self._updateTime]['type'] == 'int':
+                item[self._updateTime] = date(datetime_format, item[self._updateTime])
+        return item
 
     # 构建SQL语句
     def buildSql(self, sqlType='SELECT'):
@@ -925,6 +1028,24 @@ class DbManager(object):
             sql += '{}{}{}{}{}'.format(self._where, self._group, self._having, self._order, limit)
             return sql
         elif (sqlType == 'INSERT') | (sqlType == 'I'):
+            self._fieldsType = None
+            if type(Config.auto_timestamp) == bool and Config.auto_timestamp is False:
+                pass
+            else:
+                _fieldsType = self.getFieldsType()
+                times = Config.datetime_field
+                if len(times) == 0:
+                    times = self._datetime_field
+                times = times.split(',')
+                if len(self._createTime) == 0:
+                    self._createTime = times[0]
+                if self._createTime in _fieldsType:
+                    if type(Config.auto_timestamp) == str:
+                        self._fieldsType = Config.auto_timestamp
+                    else:
+                        self._fieldsType = _fieldsType[self._createTime]['type']
+            if self._fieldsType is not None and self._createTime not in self._field:
+                self._field.append('`{}`'.format(self._createTime))
             sql = 'INSERT INTO {} ({}) VALUES '.format(self._table, ', '.join(self._field))
             values = []
             flag = ''
@@ -932,6 +1053,20 @@ class DbManager(object):
                 flag += '('
                 for item in items:
                     flag += self._sybmol + ', '
+                    values.append(item)
+                if self._fieldsType is not None:
+                    flag += self._sybmol + ', '
+                    item = ''
+                    if self._fieldsType == 'int' or self._fieldsType == 'timestamp':
+                        item = timestamp()
+                    elif self._fieldsType == 'datetime':
+                        item = date()
+                    elif self._fieldsType == 'date':
+                        item = date('%Y-%m-%d')
+                    elif self._fieldsType == 'time':
+                        item = date('%H:%M:%S')
+                    elif self._fieldsType == 'year':
+                        item = date('%Y')
                     values.append(item)
                 flag = flag.rstrip(', ') + '), '
             flag = flag.rstrip(', ')
@@ -944,6 +1079,22 @@ class DbManager(object):
             self._setParam = tuple(values)
             return sql
         elif (sqlType == 'UPDATE') | (sqlType == 'U'):
+            self._fieldsType = None
+            if type(Config.auto_timestamp) == bool and Config.auto_timestamp is False:
+                pass
+            else:
+                _fieldsType = self.getFieldsType()
+                times = Config.datetime_field
+                if len(times) == 0:
+                    times = self._datetime_field
+                times = times.split(',')
+                if len(self._updateTime) == 0:
+                    self._updateTime = times[1] if len(times) > 1 else 'update_time'
+                if self._updateTime in _fieldsType:
+                    if type(Config.auto_timestamp) == str:
+                        self._fieldsType = Config.auto_timestamp
+                    else:
+                        self._fieldsType = _fieldsType[self._updateTime]['type']
             values = []
             sql = 'UPDATE {} SET '.format(self._table)
             for k, v in dict(self._setParam).items():
@@ -962,6 +1113,20 @@ class DbManager(object):
                     sql += self._sybmol
                     values.append(value)
                 sql += ', '
+            if self._fieldsType is not None and self._updateTime not in dict(self._setParam):
+                sql += '{}=%s'.format(preg_replace(r'(\w+)', r'`\1`', self._updateTime))
+                item = ''
+                if self._fieldsType == 'int' or self._fieldsType == 'timestamp':
+                    item = timestamp()
+                elif self._fieldsType == 'datetime':
+                    item = date()
+                elif self._fieldsType == 'date':
+                    item = date('%Y-%m-%d')
+                elif self._fieldsType == 'time':
+                    item = date('%H:%M:%S')
+                elif self._fieldsType == 'year':
+                    item = date('%Y')
+                values.append(item)
             sql = sql.rstrip(', ')
             sql += str(self._where)
             if len(self._whereParam) > 0:
@@ -1101,11 +1266,11 @@ class DbDict(dict):
 
 
 Db = DbManager(
-    host=connections['default'].get('host', 'localhost'),
-    post=connections['default'].get('port', 3306),
-    user=connections['default'].get('user', 'root'),
-    password=connections['default'].get('password', ''),
-    database=connections['default'].get('database', ''),
-    prefix=connections['default'].get('prefix', ''),
-    charset=connections['default'].get('charset', 'utf8')
+    host=Config.connections['default'].get('host', 'localhost'),
+    post=Config.connections['default'].get('port', 3306),
+    user=Config.connections['default'].get('user', 'root'),
+    password=Config.connections['default'].get('password', ''),
+    database=Config.connections['default'].get('database', ''),
+    prefix=Config.connections['default'].get('prefix', ''),
+    charset=Config.connections['default'].get('charset', 'utf8')
 )
