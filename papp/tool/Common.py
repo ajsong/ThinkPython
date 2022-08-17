@@ -19,12 +19,14 @@ import requests
 from ..Config import *
 
 
-# 修复json.dumps的时候对象内有Decimal值报错的问题
-class JSONDecimalEncoder(json.JSONEncoder):
+# 修复json.dumps的时候is not JSON serializable报错的问题
+class JSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, decimal.Decimal):
             return float(obj)
-        super(JSONDecimalEncoder, self).default(obj)
+        if obj.__class__.__name__ == 'DbList':
+            return getattr(obj, 'data')
+        super(JSONEncoder, self).default(obj)
 
 
 # 获取根目录
@@ -241,7 +243,7 @@ def sha1(string):
 def json_encode(obj):
     if type(obj) == str:
         return obj
-    return json.dumps(obj, ensure_ascii=False, cls=JSONDecimalEncoder)
+    return json.dumps(obj, ensure_ascii=False, cls=JSONEncoder)
 
 
 # json_decode
@@ -256,7 +258,7 @@ def json_decode(jsonStr):
 def format_json(obj):
     if type(obj) == str:
         obj = json_decode(obj)
-    print(json.dumps(obj, indent=4, ensure_ascii=False, sort_keys=True, cls=JSONDecimalEncoder))
+    print(json.dumps(obj, indent=4, ensure_ascii=False, sort_keys=True, cls=JSONEncoder))
 
 
 # base64_encode

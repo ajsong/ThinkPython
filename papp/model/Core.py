@@ -1,8 +1,14 @@
-import importlib
+# Developed by @mario 1.0.20220817
 from ..tool import *
 
 
 class Core(object):
+    # __connection = 'mysql'  # 数据库连接
+    # __name = 'table'  # 表名(不带表前缀)
+    # __table = 'prefix_table'  # 完整表名
+    # __dateFormat = '%Y-%m-%d %H:%M:%S'  # 输出日期字段自动格式化
+    # __createTime = 'create_time'  # 创建日期字段名, False关闭自动写入/格式化
+    # __updateTime = 'update_time'  # 更新日期字段名, False关闭自动写入/格式化
 
     def __getattr__(self, name):
         curMethods = uncamelize(name).split('_', 1)
@@ -32,166 +38,174 @@ class Core(object):
 
         return fn
 
-    def _connectname(self):
+    def _connectName(self):
         connection = ''
-        if '{}__connection'.format(self.__class__.__name__) in dir(self):
-            connection = getattr(self, '{}__connection'.format(self.__class__.__name__))
+        formatStr = '{}__connection'.format(self.__class__.__name__)
+        if formatStr in dir(self):
+            connection = getattr(self, formatStr)
         if len(connection) == 0:
-            self.db = Db
-            return Db
+            return 'mysql'
         if connection not in Config.connections.keys():
             print('Connections have no parameter: ' + connection)
             exit(0)
-        db = DbManager.instance(Config.connections[connection])
-        self.db = db
-        return db
+        return connection
 
-    def _tablename(self):
-        if '{}__name'.format(self.__class__.__name__) in dir(self):
-            return self.db.prefix + getattr(self, '{}__name'.format(self.__class__.__name__)).replace(self.db.prefix, '')
-        if '{}__table'.format(self.__class__.__name__) in dir(self):
-            return getattr(self, '{}__table'.format(self.__class__.__name__))
+    def _tableName(self):
+        import importlib
+        connection = Config.connections[self._connectName()]
+        formatStr = '{}__name'.format(self.__class__.__name__)
+        if formatStr in dir(self):
+            return connection['prefix'] + getattr(self, formatStr).replace(connection['prefix'], '')
+        formatStr = '{}__table'.format(self.__class__.__name__)
+        if formatStr in dir(self):
+            return getattr(self, formatStr)
         file = importlib.import_module(self.__module__).__file__
-        return self.db.prefix + uncamelize(file.replace(os.path.dirname(file) + '/', '').replace('.py', ''))
+        return connection['prefix'] + uncamelize(file.replace(os.path.dirname(file) + '/', '').replace('.py', ''))
 
-    def _autotime(self, attributeType):
+    def _autoTime(self, attributeType):
         field = ''
         if attributeType == 0:
-            if '{}__timeFormat'.format(self.__class__.__name__) in dir(self):
-                field = getattr(self, '{}__timeFormat'.format(self.__class__.__name__))
+            formatStr = '{}__dateFormat'.format(self.__class__.__name__)
+            if formatStr in dir(self):
+                field = getattr(self, formatStr)
         else:
-            if '{}__{}'.format(self.__class__.__name__, 'createTime' if attributeType == 1 else 'updateTime') in dir(self):
-                field = getattr(self, '{}__{}'.format(self.__class__.__name__, 'createTime' if attributeType == 1 else 'updateTime'))
+            formatStr = '{}__{}'.format(self.__class__.__name__, 'createTime' if attributeType == 1 else 'updateTime')
+            if formatStr in dir(self):
+                field = getattr(self, formatStr)
         return field
 
     def _setDb(self):
-        return self._connectname().table(self._tablename()).timeFormat(self._autotime(0)).createTime(self._autotime(1)).updateTime(self._autotime(2))
+        connection = self._connectName()
+        return Db if connection == 'mysql' else DbManager.instance(Config.connections[connection])
+
+    def _dbManager(self):
+        return self._setDb().table(self._tableName()).dateFormat(self._autoTime(0)).createTime(self._autoTime(1)).updateTime(self._autoTime(2))
 
     def alias(self, alias):
-        return self._setDb().alias(alias)
+        return self._dbManager().alias(alias)
 
-    def leftJoin(self, table, on):
-        return self._setDb().leftJoin(table, on)
+    def leftJoin(self, table, alias='', on=''):
+        return self._dbManager().leftJoin(table, alias, on)
 
-    def rightJoin(self, table, on):
-        return self._setDb().rightJoin(table, on)
+    def rightJoin(self, table, alias='', on=''):
+        return self._dbManager().rightJoin(table, alias, on)
 
-    def innerJoin(self, table, on):
-        return self._setDb().innerJoin(table, on)
+    def innerJoin(self, table, alias='', on=''):
+        return self._dbManager().innerJoin(table, alias, on)
 
-    def crossJoin(self, table):
-        return self._setDb().crossJoin(table)
+    def crossJoin(self, table, alias=''):
+        return self._dbManager().crossJoin(table, alias)
 
     def unionAll(self, table, field=None, where='', group='', having='', order='', offset=0, pagesize=0):
-        return self._setDb().unionAll(table, field, where, group, having, order, offset, pagesize)
+        return self._dbManager().unionAll(table, field, where, group, having, order, offset, pagesize)
 
     def where(self, where, param1='', param2=''):
-        return self._setDb().where(where, param1, param2)
+        return self._dbManager().where(where, param1, param2)
 
     def whereOr(self, where, param1='', param2=''):
-        return self._setDb().whereOr(where, param1, param2)
+        return self._dbManager().whereOr(where, param1, param2)
 
     def whereDay(self, field, value='today'):
-        return self._setDb().whereDay(field, value)
+        return self._dbManager().whereDay(field, value)
 
     def whereMonth(self, field, value=''):
-        return self._setDb().whereMonth(field, value)
+        return self._dbManager().whereMonth(field, value)
 
     def whereYear(self, field, value=''):
-        return self._setDb().whereYear(field, value)
+        return self._dbManager().whereYear(field, value)
 
     def whereTime(self, field, operator, value=''):
-        return self._setDb().whereTime(field, operator, value)
+        return self._dbManager().whereTime(field, operator, value)
 
     def field(self, field):
-        return self._setDb().field(field)
+        return self._dbManager().field(field)
 
     def withoutField(self, field):
-        return self._setDb().withoutField(field)
+        return self._dbManager().withoutField(field)
 
     def distinct(self, field):
-        return self._setDb().distinct(field)
+        return self._dbManager().distinct(field)
 
     def group(self, group):
-        return self._setDb().group(group)
+        return self._dbManager().group(group)
 
     def having(self, having):
-        return self._setDb().having(having)
+        return self._dbManager().having(having)
 
     def order(self, field, order=''):
-        return self._setDb().order(field, order)
+        return self._dbManager().order(field, order)
 
     def orderField(self, field, value):
-        return self._setDb().orderField(field, value)
+        return self._dbManager().orderField(field, value)
 
     def limit(self, offset, pagesize=-100):
-        return self._setDb().limit(offset, pagesize)
+        return self._dbManager().limit(offset, pagesize)
 
     def page(self, page, pagesize):
-        return self._setDb().page(page, pagesize)
+        return self._dbManager().page(page, pagesize)
 
     def cache(self, cache):
-        return self._setDb().cache(cache)
+        return self._dbManager().cache(cache)
 
     def replace(self, replace=True):
-        return self._setDb().replace(replace)
+        return self._dbManager().replace(replace)
 
     def fetchSql(self, fetchSql=True):
-        return self._setDb().fetchSql(fetchSql)
+        return self._dbManager().fetchSql(fetchSql)
 
     def inc(self, field, step=1):
-        return self._setDb().inc(field, step)
+        return self._dbManager().inc(field, step)
 
     def dec(self, field, step=1):
-        return self._setDb().dec(field, step)
+        return self._dbManager().dec(field, step)
 
     def exist(self):
-        return self._setDb().exist()
+        return self._dbManager().exist()
 
     def count(self):
-        return self._setDb().count()
+        return self._dbManager().count()
 
     def max(self, field):
-        return self._setDb().max(field)
+        return self._dbManager().max(field)
 
     def min(self, field):
-        return self._setDb().min(field)
+        return self._dbManager().min(field)
 
     def avg(self, field):
-        return self._setDb().avg(field)
+        return self._dbManager().avg(field)
 
     def sum(self, field):
-        return self._setDb().sum(field)
+        return self._dbManager().sum(field)
 
     def groupConcat(self, field):
-        return self._setDb().groupConcat(field)
+        return self._dbManager().groupConcat(field)
 
     def value(self, field):
-        return self._setDb().value(field)
+        return self._dbManager().value(field)
 
     def column(self, field):
-        return self._setDb().column(field)
+        return self._dbManager().column(field)
 
     def getFields(self):
-        return self._setDb().getFields()
+        return self._dbManager().getFields()
 
     def getFieldsType(self):
-        return self._setDb().getFieldsType()
+        return self._dbManager().getFieldsType()
 
     def find(self, field=None):
-        return self._setDb().find(field)
+        return self._dbManager().find(field)
 
     def select(self, field=None):
-        return self._setDb().select(field)
+        return self._dbManager().select(field)
 
     def insert(self, data):
-        return self._setDb().insert(data)
+        return self._dbManager().insert(data)
 
     def update(self, data=None):
-        return self._setDb().update(data)
+        return self._dbManager().update(data)
 
     def delete(self, where=None):
-        return self._setDb().delete(where)
+        return self._dbManager().delete(where)
 
     def buildSql(self, sqlType='SELECT'):
-        return self._setDb().buildSql(sqlType)
+        return self._dbManager().buildSql(sqlType)

@@ -22,7 +22,7 @@ class DbManager(object):
     _cache = 0
     _createTime = ''
     _updateTime = ''
-    _timeFormat = ''
+    _dateFormat = ''
     _whereParam = []
     _setParam = []
     _replace = False
@@ -34,7 +34,7 @@ class DbManager(object):
 
     # 构造函数
     def __init__(self, **kwargs):
-        self.version = '2.5.20220816'
+        self.version = '2.6.20220817'
         self.sqlite = kwargs.get('sqlite', '')
         if len(self.sqlite) > 0:
             self.prefix = ''
@@ -155,7 +155,7 @@ class DbManager(object):
         self._cache = 0
         self._createTime = ''
         self._updateTime = ''
-        self._timeFormat = ''
+        self._dateFormat = ''
         self._whereParam = []
         self._setParam = []
         self._replace = False
@@ -213,80 +213,135 @@ class DbManager(object):
         return self
 
     # 左联接
-    def leftJoin(self, table, on=''):
-        alias = ''
+    def leftJoin(self, table, alias='', on=''):
+        from ..model.Core import Core
+        if len(alias) > 0:
+            if '=' in alias:
+                on = alias
+                alias = ''
+            else:
+                alias = ' `' + alias + '`'
         if type(table) == dict:
             tables = table
-            key = tables.keys()[0]
-            table = key
+            key = list(tables.keys())[0]
+            if isinstance(key, Core):
+                table = getattr(key, '_tableName')()
+            else:
+                table = key
             alias = ' `' + tables.get(key) + '`'
-        if re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
+        isOverall = False
+        if isinstance(table, Core):
+            table = '`{}{}`'.format(self.prefix, getattr(table, '_tableName')().replace(self.prefix, ''))
+        elif re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
             if ' ' in table:
                 tables = re.sub(r'\s+', ' ', table).split(' ')
                 table = tables[0]
                 alias = ' `' + tables[1] + '`'
             table = '`{}{}`'.format(self.prefix, table.replace(self.prefix, ''))
         else:
+            isOverall = True
             table = '({})'.format(table)
         sql = ' LEFT JOIN {}{}'.format(table, alias)
         if len(on) > 0:
             sql += ' ON ' + preg_replace(r'(\w+)', r'`\1`', on)
+        else:
+            if isOverall is False:
+                sql += ' ON ' + preg_replace(r'(\w+)', r'`\1`', '{}.id={}.{}_id'.format(self._alias.strip().strip('`'), alias.strip().strip('`'), self._table.strip('`').strip(self.prefix)))
         self._left.append(sql)
         return self
 
     # 右联接
-    def rightJoin(self, table, on=''):
-        alias = ''
+    def rightJoin(self, table, alias='', on=''):
+        from ..model.Core import Core
+        if len(alias) > 0:
+            if '=' in alias:
+                on = alias
+                alias = ''
+            else:
+                alias = ' `' + alias + '`'
         if type(table) == dict:
             tables = table
-            key = tables.keys()[0]
-            table = key
+            key = list(tables.keys())[0]
+            if isinstance(key, Core):
+                table = getattr(key, '_tableName')()
+            else:
+                table = key
             alias = ' `' + tables.get(key) + '`'
-        if re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
+        isOverall = False
+        if isinstance(table, Core):
+            table = '`{}{}`'.format(self.prefix, getattr(table, '_tableName')().replace(self.prefix, ''))
+        elif re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
             if ' ' in table:
                 tables = re.sub(r'\s+', ' ', table).split(' ')
                 table = tables[0]
                 alias = ' `' + tables[1] + '`'
             table = '`{}{}`'.format(self.prefix, table.replace(self.prefix, ''))
         else:
+            isOverall = True
             table = '({})'.format(table)
         sql = ' RIGHT JOIN {}{}'.format(table, alias)
         if len(on) > 0:
             sql += ' ON ' + preg_replace(r'(\w+)', r'`\1`', on)
+        else:
+            if isOverall is False:
+                sql += ' ON ' + preg_replace(r'(\w+)', r'`\1`', '{}.id={}.{}_id'.format(alias.strip().strip('`'), self._alias.strip().strip('`'), table.strip('`').strip(self.prefix)))
         self._right.append(sql)
         return self
 
     # 等值联接
-    def innerJoin(self, table, on=''):
-        alias = ''
+    def innerJoin(self, table, alias='', on=''):
+        from ..model.Core import Core
+        if len(alias) > 0:
+            if '=' in alias:
+                on = alias
+                alias = ''
+            else:
+                alias = ' `' + alias + '`'
         if type(table) == dict:
             tables = table
-            key = tables.keys()[0]
-            table = key
+            key = list(tables.keys())[0]
+            if isinstance(key, Core):
+                table = getattr(key, '_tableName')()
+            else:
+                table = key
             alias = ' `' + tables.get(key) + '`'
-        if re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
+        isOverall = False
+        if isinstance(table, Core):
+            table = '`{}{}`'.format(self.prefix, getattr(table, '_tableName')().replace(self.prefix, ''))
+        elif re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
             if ' ' in table:
                 tables = re.sub(r'\s+', ' ', table).split(' ')
                 table = tables[0]
                 alias = ' `' + tables[1] + '`'
             table = '`{}{}`'.format(self.prefix, table.replace(self.prefix, ''))
         else:
+            isOverall = True
             table = '({})'.format(table)
         sql = ' INNER JOIN {}{}'.format(table, alias)
         if len(on) > 0:
             sql += ' ON ' + preg_replace(r'(\w+)', r'`\1`', on)
+        else:
+            if isOverall is False:
+                sql += ' ON ' + preg_replace(r'(\w+)', r'`\1`', '{}.id={}.{}_id'.format(self._alias.strip().strip('`'), alias.strip().strip('`'), self._table.strip('`').strip(self.prefix)))
         self._inner.append(sql)
         return self
 
     # 多联接
-    def crossJoin(self, table):
-        alias = ''
+    def crossJoin(self, table, alias=''):
+        from ..model.Core import Core
+        if len(alias) > 0:
+            alias = ' `' + alias + '`'
         if type(table) == dict:
             tables = table
-            key = tables.keys()[0]
-            table = key
+            key = list(tables.keys())[0]
+            if isinstance(key, Core):
+                table = getattr(key, '_tableName')()
+            else:
+                table = key
             alias = ' `' + tables.get(key) + '`'
-        if re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
+        if isinstance(table, Core):
+            table = '`{}{}`'.format(self.prefix, getattr(table, '_tableName')().replace(self.prefix, ''))
+        elif re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
             if ' ' in table:
                 tables = re.sub(r'\s+', ' ', table).split(' ')
                 table = tables[0]
@@ -299,14 +354,21 @@ class DbManager(object):
 
     # 联合查询
     def unionAll(self, table, field=None, where='', group='', having='', order='', offset=0, pagesize=0):
+        from ..model.Core import Core
         if type(table) == dict:
             tables = table
-            key = tables.keys()[0]
-            table = key
-        if re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
-            if ' ' in table:
-                tables = re.sub(r'\s+', ' ', table).split(' ')
-                table = tables[0]
+            key = list(tables.keys())[0]
+            if isinstance(key, Core):
+                table = getattr(key, '_tableName')()
+            else:
+                table = key
+        if isinstance(table, Core) or re.compile(r'^\w+(\s+\w+)?$').match(str(table)) is not None:
+            if isinstance(table, Core):
+                table = getattr(table, '_tableName')()
+            else:
+                if ' ' in table:
+                    tables = re.sub(r'\s+', ' ', table).split(' ')
+                    table = tables[0]
             table = '`{}{}`'.format(self.prefix, table.replace(self.prefix, ''))
             sql = 'SELECT {} FROM {}'.format(', '.join(self._fieldAdapter(field, True)), table)
             where = self._whereAdapter(where, ' AND ', '', '', True)
@@ -641,6 +703,18 @@ class DbManager(object):
         self._fetchSql = fetchSql
         return self
 
+    # 自动时间, False为关闭自动写入/格式化
+    def autoTime(self, autoTime):
+        if type(autoTime) == bool and autoTime is False:
+            self._createTime = False
+            self._updateTime = False
+        return self
+
+    # 自动格式化时间的格式
+    def dateFormat(self, formatStr):
+        self._dateFormat = formatStr
+        return self
+
     # 自动写入创建时间
     def createTime(self, field):
         self._createTime = field
@@ -649,11 +723,6 @@ class DbManager(object):
     # 自动写入更新时间
     def updateTime(self, field):
         self._updateTime = field
-        return self
-
-    # 自动格式化时间的格式
-    def timeFormat(self, formatStr):
-        self._timeFormat = formatStr
         return self
 
     # 递增(update用)
@@ -721,7 +790,7 @@ class DbManager(object):
         _list = self.select()
         for item in _list:
             column.append(item.get(field))
-        return column
+        return DbList(column)
 
     # 获取表字段
     def getFields(self):
@@ -851,7 +920,7 @@ class DbManager(object):
         res = []
         for item in ret:
             res.append(DbDict(self._autoFormatTime(item)))
-        return res
+        return DbList(res)
 
     # 新增并返回新增ID, data: 字典类型{} 数组类型[{}]
     def insert(self, data):
@@ -929,7 +998,7 @@ class DbManager(object):
             res = []
             for item in ret:
                 res.append(DbDict(item))
-            return res
+            return DbList(res)
         else:
             try:
                 self.execute(sql, params)
@@ -965,7 +1034,7 @@ class DbManager(object):
                             res = []
                             for item in ret:
                                 res.append(DbDict(self._autoFormatTime(item)))
-                            return res
+                            return DbList(res)
             return None
         if not cacheDir.is_dir():
             os.makedirs('{}'.format(cacheDir))
@@ -979,6 +1048,8 @@ class DbManager(object):
     def _autoFormatTime(self, item):
         if type(Config.auto_timestamp) == bool and Config.auto_timestamp is False:
             return item
+        if type(self._createTime) == bool and self._createTime is False and type(self._updateTime) == bool and self._updateTime is False:
+            return item
         if self._fieldsType is None:
             if type(Config.auto_timestamp) == str:
                 self._fieldsType = Config.auto_timestamp
@@ -988,23 +1059,23 @@ class DbManager(object):
         if len(times) == 0:
             times = self._datetime_field
         times = times.split(',')
-        if len(self._createTime) == 0:
+        if type(self._createTime) == str and len(self._createTime) == 0:
             self._createTime = times[0]
-        if len(self._updateTime) == 0:
+        if type(self._updateTime) == str and len(self._updateTime) == 0:
             self._updateTime = times[1] if len(times) > 1 else 'update_time'
-        datetime_format = self._timeFormat if len(self._timeFormat) > 0 else Config.datetime_format
-        if self._createTime in item:
+        datetimeFormat = self._dateFormat if len(self._dateFormat) > 0 else Config.datetime_format
+        if type(self._createTime) == str and self._createTime in item:
             if type(self._fieldsType) == str:
                 if self._fieldsType == 'int':
-                    item[self._createTime] = date(datetime_format, item[self._createTime])
+                    item[self._createTime] = date(datetimeFormat, item[self._createTime])
             elif self._fieldsType[self._createTime]['type'] == 'int':
-                item[self._createTime] = date(datetime_format, item[self._createTime])
-        if self._updateTime in item:
+                item[self._createTime] = date(datetimeFormat, item[self._createTime])
+        if type(self._updateTime) == str and self._updateTime in item:
             if type(self._fieldsType) == str:
                 if self._fieldsType == 'int':
-                    item[self._updateTime] = date(datetime_format, item[self._updateTime])
+                    item[self._updateTime] = date(datetimeFormat, item[self._updateTime])
             elif self._fieldsType[self._updateTime]['type'] == 'int':
-                item[self._updateTime] = date(datetime_format, item[self._updateTime])
+                item[self._updateTime] = date(datetimeFormat, item[self._updateTime])
         return item
 
     # 构建SQL语句
@@ -1029,7 +1100,7 @@ class DbManager(object):
             return sql
         elif (sqlType == 'INSERT') | (sqlType == 'I'):
             self._fieldsType = None
-            if type(Config.auto_timestamp) == bool and Config.auto_timestamp is False:
+            if type(self._createTime) != str or (type(Config.auto_timestamp) == bool and Config.auto_timestamp is False):
                 pass
             else:
                 _fieldsType = self.getFieldsType()
@@ -1080,7 +1151,7 @@ class DbManager(object):
             return sql
         elif (sqlType == 'UPDATE') | (sqlType == 'U'):
             self._fieldsType = None
-            if type(Config.auto_timestamp) == bool and Config.auto_timestamp is False:
+            if type(self._updateTime) == str and (type(Config.auto_timestamp) == bool and Config.auto_timestamp is False):
                 pass
             else:
                 _fieldsType = self.getFieldsType()
@@ -1255,22 +1326,69 @@ class DbRaw(object):
 
 
 class DbDict(dict):
+    # 设置可使用 dict.attribute 形式取值
     def __getattr__(self, item):
-        res = self.get(item)
-        if isinstance(res, decimal.Decimal):
-            res = float(res)
-        return res
+        if item not in self:
+            return None
+        return self.get(item)
 
     def __setattr__(self, key, value):
         self[key] = value
 
+    def __str__(self):
+        return json_encode(self)
+
+
+class DbList(object):
+    def __init__(self, data=None):
+        self.data = None
+        if data is None:
+            self.data = []
+        else:
+            self.data = data
+
+    # 通过列表下标访问列表元素(支持切片)
+    def __getitem__(self, index):
+        # 让本类的对象支持下标访问
+        if isinstance(index, int):  # 访问的是整数类型
+            return self.data[index]
+        elif type(index) is slice:  # 访问的是切片类型(selice切片类型)
+            # index.start  # 切片起始值
+            # index.stop  # 切片结束值
+            # index.step  # 切片步长
+            return self.data[index]
+        return None
+
+    # 通过列表下标更改列表元素
+    def __setitem__(self, index, value):
+        self.data[index] = value
+
+    # 判断传入的元素是否在列表中
+    def __contains__(self, item):
+        return self.data.__contains__(item)
+
+    # 向列表中添加元素
+    def append(self, item):
+        self.data.append(item)
+
+    # 删除并返回最后一个元素
+    def pop(self, index=-1):
+        return self.data.pop(index)
+
+    # 删除指定下标元素
+    def __delitem__(self, index):
+        del self.data[index]
+
+    def __str__(self):
+        return json_encode(self.data)
+
 
 Db = DbManager(
-    host=Config.connections['default'].get('host', 'localhost'),
-    post=Config.connections['default'].get('port', 3306),
-    user=Config.connections['default'].get('user', 'root'),
-    password=Config.connections['default'].get('password', ''),
-    database=Config.connections['default'].get('database', ''),
-    prefix=Config.connections['default'].get('prefix', ''),
-    charset=Config.connections['default'].get('charset', 'utf8')
+    host=Config.connections['mysql'].get('host', 'localhost'),
+    post=Config.connections['mysql'].get('port', 3306),
+    user=Config.connections['mysql'].get('user', 'root'),
+    password=Config.connections['mysql'].get('password', ''),
+    database=Config.connections['mysql'].get('database', ''),
+    prefix=Config.connections['mysql'].get('prefix', ''),
+    charset=Config.connections['mysql'].get('charset', 'utf8')
 )

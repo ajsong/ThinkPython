@@ -2,13 +2,13 @@ class Config(object):
 
     # 数据库连接配置信息
     connections = {
-        'default': {
+        'mysql': {
             'host': 'localhost',
             'port': 3306,
             'user': 'root',
             'password': '19871011',
-            'database': 'pil',
-            'prefix': 'pil_',
+            'database': 'platforma',
+            'prefix': 'pf_',
             'charset': 'utf8'
         }
     }
