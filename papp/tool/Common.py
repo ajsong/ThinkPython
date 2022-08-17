@@ -1,4 +1,4 @@
-# Developed by @mario 2.1.20220816
+# Developed by @mario 2.2.20220817
 import base64
 import decimal
 import hashlib
@@ -248,6 +248,8 @@ def json_encode(obj):
 
 # json_decode
 def json_decode(jsonStr):
+    if jsonStr.startswith('[') is False and jsonStr.startswith('{') is False:
+        return jsonStr
     try:
         return json.loads(jsonStr)
     except json.decoder.JSONDecodeError:
@@ -288,7 +290,7 @@ def file_exist(file):
 
 # 创建多级目录,对应根目录
 def makedir(path):
-    path = root_path() + path.replace(root_path(), '')
+    path = root_path() + '{}'.format(path).replace(root_path(), '')
     if not Path(path).is_dir():
         os.makedirs(path, 0o777)
 
@@ -464,11 +466,18 @@ def getMethod(clazz, method):
     return None
 
 
+# Redis
+def Redis(host='localhost', port=6379, db=0):
+    import redis
+    pool = redis.ConnectionPool(host=host, port=port, db=db, decode_responses=True)
+    return redis.StrictRedis(connection_pool=pool)
+
+
 # 网络请求
 def requestUrl(method, url, data=None, returnJson=False, postJson=False, headers=None, proxies=None):
     method = method.upper()
     if url.startswith('https:') is False and url.startswith('http:') is False:
-        url = Config.apiUrl.rstrip('/') + '/' + url.lstrip('/')
+        url = Config.api_url.rstrip('/') + '/' + url.lstrip('/')
     if headers is None:
         headers = {}
     if postJson:

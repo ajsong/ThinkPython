@@ -1,3 +1,4 @@
+# Developed by @mario 2.6.20220817
 import sqlite3
 import pymysql.cursors
 from dbutils.pooled_db import PooledDB
@@ -34,7 +35,6 @@ class DbManager(object):
 
     # 构造函数
     def __init__(self, **kwargs):
-        self.version = '2.6.20220817'
         self.sqlite = kwargs.get('sqlite', '')
         if len(self.sqlite) > 0:
             self.prefix = ''
@@ -1015,9 +1015,24 @@ class DbManager(object):
     def _cacheSql(self, sql, res=None):
         if self._cache == 0:
             return None
-        obj = hashlib.md5()
-        obj.update(sql.encode('utf-8'))
-        filename = obj.hexdigest()
+        if Config.cache_type == 'redis':
+            r = Redis()
+            if r.ping():
+                if res is None:
+                    ret = r.get(md5(sql))
+                    if ret is not None:
+                        ret = json_decode(ret)
+                        if type(ret) == dict:
+                            return DbDict(self._autoFormatTime(ret))
+                        else:
+                            res = []
+                            for item in ret:
+                                res.append(DbDict(self._autoFormatTime(item)))
+                            return DbList(res)
+                    return None
+                r.set(md5(sql), json_encode(res), ex=self._cache)
+                return None
+        filename = md5(sql)
         cacheDir = Path(runtime_path() + '/sql')
         if res is None:
             if cacheDir.is_dir():
@@ -1036,10 +1051,8 @@ class DbManager(object):
                                 res.append(DbDict(self._autoFormatTime(item)))
                             return DbList(res)
             return None
-        if not cacheDir.is_dir():
-            os.makedirs('{}'.format(cacheDir))
-        cacheFile = Path('{}/{}'.format(cacheDir, filename))
-        fo = open('{}'.format(cacheFile), 'w+')
+        makedir(cacheDir)
+        fo = open('{}/{}'.format(cacheDir, filename), 'w+')
         fo.write(json_encode(res))
         fo.close()
         return None

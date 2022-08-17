@@ -25,4 +25,7 @@ class Config(object):
     datetime_format = '%Y-%m-%d %H:%M:%S'
 
     # requests自动配置主机头
-    apiUrl = 'http://localhost'
+    api_url = 'http://localhost'
+
+    # 缓存驱动 支持 redis file
+    cache_type = 'redis'
