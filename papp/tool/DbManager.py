@@ -1,4 +1,4 @@
-# Developed by @mario 2.6.20220817
+# Developed by @mario 2.7.20220818
 import sqlite3
 import pymysql.cursors
 from dbutils.pooled_db import PooledDB
@@ -805,6 +805,7 @@ class DbManager(object):
             # SHOW TABLE STATUS LIKE 'table'  # 指定数据表
         fields = {}
         for item in desc:
+            item = dict(item)
             if preg_match('^(char|varchar|text|tinytext|mediumtext|longtext)', item['type'] if is_sqlite3 else item['Type'], re.I):
                 if is_sqlite3:
                     fields[item['name']] = '' if item['dflt_value'] is None else item['dflt_value'].strip("'")
@@ -842,6 +843,7 @@ class DbManager(object):
             desc = self.query('SHOW COLUMNS FROM {}'.format(self._table))
         fields = {}
         for item in desc:
+            item = dict(item)
             field = {}
             if preg_match('^(char|varchar|text|tinytext|mediumtext|longtext)', item['type'] if is_sqlite3 else item['Type'], re.I):
                 if is_sqlite3:
@@ -1339,12 +1341,13 @@ class DbRaw(object):
 
 
 class DbDict(dict):
-    # 设置可使用 dict.attribute 形式取值
+    # 使用 dict.attribute 形式取值
     def __getattr__(self, item):
         if item not in self:
             return None
         return self.get(item)
 
+    # 使用 dict.attribute 形式赋值
     def __setattr__(self, key, value):
         self[key] = value
 
@@ -1354,15 +1357,10 @@ class DbDict(dict):
 
 class DbList(object):
     def __init__(self, data=None):
-        self.data = None
-        if data is None:
-            self.data = []
-        else:
-            self.data = data
+        self.data = [] if data is None else data
 
     # 通过列表下标访问列表元素(支持切片)
     def __getitem__(self, index):
-        # 让本类的对象支持下标访问
         if isinstance(index, int):  # 访问的是整数类型
             return self.data[index]
         elif type(index) is slice:  # 访问的是切片类型(selice切片类型)
@@ -1379,6 +1377,14 @@ class DbList(object):
     # 判断传入的元素是否在列表中
     def __contains__(self, item):
         return self.data.__contains__(item)
+
+    # 返回数组元素数量
+    def __len__(self, *args, **kwargs):
+        return len(self.data)
+
+    # 反转数组
+    def reverse(self):
+        return self.data.reverse()
 
     # 向列表中添加元素
     def append(self, item):

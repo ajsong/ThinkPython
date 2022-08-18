@@ -7,7 +7,7 @@ class Config(object):
             'port': 3306,
             'user': 'root',
             'password': '19871011',
-            'database': 'platforma',
+            'database': '818ab',
             'prefix': 'pf_',
             'charset': 'utf8'
         }
