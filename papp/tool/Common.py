@@ -1,4 +1,4 @@
-# Developed by @mario 2.2.20220817
+# Developed by @mario 2.3.20220819
 import base64
 import decimal
 import hashlib
@@ -347,9 +347,10 @@ def is_date(dateStr):
 
 # 获取ip
 def ip():
-    res = requests.get('https://myip.ipip.net', timeout=5).text
-    res = re.findall(r'(\d+\.\d+\.\d+\.\d+)', res)
-    return res[0] if res else ''
+    return requests.get('https://api.ipify.org', timeout=5).text
+    # res = requests.get('https://myip.ipip.net', timeout=5).text
+    # res = re.findall(r'(\d+\.\d+\.\d+\.\d+)', res)
+    # return res[0] if res else ''
 
 
 # 生成随机字母数字

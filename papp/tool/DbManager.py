@@ -850,7 +850,7 @@ class DbManager(object):
                     field['default'] = '' if item['dflt_value'] is None else item['dflt_value'].strip("'")
                 else:
                     field['default'] = '' if item['Default'] is None else item['Default']
-                field['type'] = 'text'
+                field['type'] = 'string'
             elif preg_match('^(datetime|date|time|timestamp)', item['type'] if is_sqlite3 else item['Type'], re.I):
                 if is_sqlite3:
                     field['default'] = item['dflt_value'].strip("'")
