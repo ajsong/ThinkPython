@@ -13,31 +13,31 @@ class WildcardConverter(BaseConverter):
 # https://blog.csdn.net/Lin_Hv/article/details/113112527
 # https://www.cnblogs.com/DragonFire/p/9255637.html
 # pip install flask
-server = Flask(__name__)
-server.url_map.converters['reg'] = WildcardConverter  # 初始化转换器
+app = Flask(__name__)
+app.url_map.converters['reg'] = WildcardConverter  # 初始化转换器
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
 
-@server.route('/', methods=['GET'])
-@server.route('/index', methods=['GET'])
+@app.route('/', methods=['GET'])
+@app.route('/index', methods=['GET'])
 def start(): return index('index')
 
 
-@server.route('/index/<reg:path>')
-@server.route('/admin/<reg:path>')
+@app.route('/index/<reg:path>')
+@app.route('/admin/<reg:path>')
 def index(path):
     module = 'index'
-    app = 'index'
-    act = 'index'
+    controller = 'index'
+    action = 'index'
     if len(path) > 0:
         paths = path.split('/')
         module = paths[0]
         if len(paths) > 1 and len(paths[1]) > 0:
-            app = paths[1]
+            controller = paths[1]
             if len(paths) > 2 and len(paths[2]) > 0:
-                act = paths[2]
-    ret = getMethod('papp.controller.'+module.lower()+'.'+app.capitalize(), act.lower())
+                action = paths[2]
+    ret = getMethod('papp.controller.'+module.lower()+'.'+controller.capitalize(), action.lower())
     if ret is None:
         return '', 400
     if type(ret) == render_template:
@@ -61,4 +61,4 @@ if __name__ == '__main__':
 
     # pip install waitress
     from waitress import serve
-    serve(server, host=args.host, port=args.port)
+    serve(app, host=args.host, port=args.port)

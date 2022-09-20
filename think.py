@@ -1,5 +1,4 @@
-# Developed by @mario 1.5.20220814
-from argparse import ArgumentParser
+# Developed by @mario 1.6.20220829
 from papp.tool import *
 
 
@@ -15,7 +14,7 @@ def createControllerFile(param):
         file_put_contents(path + '/__init__.py')
     filepath = path + '/' + clazz + '.py'
     if file_exist(filepath):
-        print("Controller:\033[31m" + filepath + "\033[m already exist.\n")
+        print('Controller:\033[31m' + filepath + '\033[m already exist.\n')
         return None
     method = '''from .Core import *
 
@@ -37,7 +36,7 @@ def createModelFile(param):
         file_put_contents(path + '/__init__.py')
     filepath = path + '/' + clazz + '.py'
     if file_exist(filepath):
-        print("Model:\033[31m" + filepath + "\033[m already exist.\n")
+        print('Model:\033[31m' + filepath + '\033[m already exist.\n')
         return None
     method = '''from .Core import *
 
@@ -53,28 +52,37 @@ class _'''+clazz+'''(Core):
 
 
 if __name__ == '__main__':
-    parser = ArgumentParser()  # https://www.jb51.net/article/179189.htm
-    parser.add_argument('--make:controller', type=str, dest='controller', help='Create a new resource controller class')
-    parser.add_argument('--make:model', type=str, dest='model', help='Create a new model class')
-    args = parser.parse_args()
+    # from argparse import ArgumentParser
+    # parser = ArgumentParser()  # https://www.jb51.net/article/179189.htm
+    # parser.add_argument('--make:controller', type=str, dest='controller', help='Create a new resource controller class')
+    # parser.add_argument('--make:model', type=str, dest='model', help='Create a new model class')
+    # args = parser.parse_args()
 
-    if args.controller is not None:
-        arguments = args.controller.split(',')
-        for arg in arguments:
-            res = createControllerFile(arg)
-            if res is not None:
-                print("Controller:\033[32m" + res + "\033[m created successfully.")
-        print()
-        exit(0)
+    args = sys.argv[1:]
+    if len(args) > 0:
+        commands = args[0]
+        if 'make:' in commands:
+            if len(args) == 1:
+                print('Missing arguments')
+                exit(0)
+            commands = commands.strip('make:')
+            if commands == 'controller':
+                arguments = args[1].split(',')
+                for arg in arguments:
+                    res = createControllerFile(arg)
+                    if res is not None:
+                        print('Controller:\033[32m' + res + '\033[m created successfully.')
+                print()
+                exit(0)
 
-    if args.model is not None:
-        arguments = args.model.split(',')
-        for arg in arguments:
-            res = createModelFile(camelize(arg))
-            if res is not None:
-                print("Model:\033[32m" + res + "\033[m created successfully.")
-        print()
-        exit(0)
+            if commands == 'model':
+                arguments = args[1].split(',')
+                for arg in arguments:
+                    res = createModelFile(camelize(arg))
+                    if res is not None:
+                        print('Model:\033[32m' + res + '\033[m created successfully.')
+                print()
+                exit(0)
 
     file = __file__
     file = file.replace(os.path.dirname(file) + '/', '')
@@ -83,7 +91,7 @@ if __name__ == '__main__':
   python '''+file+''' [commands]
 
 \033[33mAvailable commands:\033[m
-  \033[32m--make:controller\033[m   Create a new resource controller class
-  \033[32m--make:model\033[m        Create a new model class
+  \033[32mmake:controller\033[m   Create a new resource controller class
+  \033[32mmake:model\033[m        Create a new model class
 '''
     print(usage)

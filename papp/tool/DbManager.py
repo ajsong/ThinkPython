@@ -1,4 +1,4 @@
-# Developed by @mario 2.7.20220818
+# Developed by @mario 3.0.20220920
 import sqlite3
 import pymysql.cursors
 from dbutils.pooled_db import PooledDB
@@ -27,6 +27,7 @@ class DbManager(object):
     _whereParam = []
     _setParam = []
     _replace = False
+    _printSql = False
     _fetchSql = False
     _fieldsType = None
 
@@ -159,6 +160,7 @@ class DbManager(object):
         self._whereParam = []
         self._setParam = []
         self._replace = False
+        self._printSql = False
         self._fetchSql = False
         self._fieldsType = None
 
@@ -386,6 +388,9 @@ class DbManager(object):
     def where(self, where, param1='', param2=''):
         return self._whereAdapter(where, ' AND ', param1, param2)
 
+    def whereRaw(self, where):
+        return self.where(where)
+
     def whereOr(self, where, param1='', param2=''):
         return self._whereAdapter(where, ' OR ', param1, param2)
 
@@ -461,8 +466,10 @@ class DbManager(object):
             field = where
             if isinstance(field, DbRaw):
                 field = field.data
-            else:
+            elif preg_match(r'^[\w.]+$', field):
                 field = preg_replace(r'(\w+)', r'`\1`', field)
+            else:
+                field = '({})'.format(field)
             _where += '{}{}'.format(andOr, field)
             if len(str(param2).strip()) > 0:
                 value = param2
@@ -522,9 +529,12 @@ class DbManager(object):
         return self
 
     # 时间对比查询
-    # whereDay('add_time', 'today') //查询add_time今天的记录
-    def whereDay(self, field, value='today'):
-        return self.whereTime(field, '=', date('%Y-%m-%d %H:%M:%S', strtotime(value)))
+    def whereYear(self, field, value=''):
+        if len(value) > 0:
+            year = date('%Y', strtotime(value))
+        else:
+            year = date('%Y')
+        return self.whereTime(field, [year+'-1-1', year+'-12-31'])
 
     def whereMonth(self, field, value=''):
         if len(value) > 0:
@@ -536,12 +546,21 @@ class DbManager(object):
             monthDay = date('%t')
         return self.whereTime(field, [Ym+'-1', Ym+'-'+monthDay])
 
-    def whereYear(self, field, value=''):
+    def whereWeek(self, field, value=''):
         if len(value) > 0:
-            year = date('%Y', strtotime(value))
+            timeStamp = strtotime(value)
+            Ymd = date('%Y-%m-%d', timeStamp)
         else:
-            year = date('%Y')
-        return self.whereTime(field, [year+'-1-1', year+'-12-31'])
+            Ymd = date('%Y-%m-%d')
+        day = datetime.datetime.strptime(Ymd, '%Y-%m-%d')
+        monday = datetime.datetime.strftime(day - datetime.timedelta(day.weekday()), '%Y-%m-%d')
+        monday_ = datetime.datetime.strptime(monday, '%Y-%m-%d')
+        sunday = datetime.datetime.strftime(monday_ + datetime.timedelta(monday_.weekday() + 6), '%Y-%m-%d')
+        return self.whereTime(field, [monday, sunday])
+
+    # whereDay('add_time', 'today') //查询add_time今天的记录
+    def whereDay(self, field, value='today'):
+        return self.whereTime(field, '=', date('%Y-%m-%d %H:%M:%S', strtotime(value)))
 
     # whereTime('add_time', '2022-7-10') //查询add_time等于指定日期的记录
     # whereTime('add_time', '<=', '2022-7-10') //查询add_time小于或等于指定日期的记录
@@ -551,19 +570,20 @@ class DbManager(object):
             value = operator
             operator = '='
         if type(value) == list and len(value) == 0:
-            print('value is list and len is 0')
+            print('whereTime value is list and len is 0')
             exit(0)
+        where = ' {} '.format('AND')
         if '<' in operator:
             if type(value) == list:
                 value = value[0]
             timeStamp = strtotime(date('%Y-%m-%d 00:00:00', strtotime(value)))
-            where = '`{}`{}{}'.format(field, operator, self._sybmol)
+            where += '`{}`{}{}'.format(field, operator, self._sybmol)
             self._whereParam.append(str(timeStamp))
         elif '>' in operator:
             if type(value) == list:
                 value = value[0]
             timeStamp = strtotime(date('%Y-%m-%d 23:59:59', strtotime(value)))
-            where = '`{}`{}{}'.format(field, operator, self._sybmol)
+            where += '`{}`{}{}'.format(field, operator, self._sybmol)
             self._whereParam.append(str(timeStamp))
         else:
             if type(value) == list and len(value) == 1:
@@ -574,14 +594,30 @@ class DbManager(object):
             else:
                 start = strtotime(date('%Y-%m-%d 00:00:00', strtotime(value)))
                 end = strtotime(date('%Y-%m-%d 23:59:59', strtotime(value)))
-            where = '`{0}`>={1} AND `{0}`<={1}'.format(field, self._sybmol)
+            where += '`{0}`>={1} AND `{0}`<={1}'.format(field, self._sybmol)
             self._whereParam.extend([str(start), str(end)])
-        self._where += ' WHERE ' + where if len(self._where) == 0 else where
+        self._where += ' WHERE ' + where.lstrip(' AND ') if len(self._where) == 0 else where
+        return self
+
+    # 比较两个字段
+    def whereColumn(self, field1, operator, field2=None, logic='AND'):
+        if operator is None or len(operator) == 0:
+            print('whereColumn Missing parameter')
+            exit(0)
+        if field2 is None:
+            field2 = operator
+            operator = '='
+        where = ' {} {}{}{}'.format(logic, preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, field1), operator, preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, field2))
+        self._where += ' WHERE ' + where.lstrip(' {} '.format(logic)) if len(self._where) == 0 else where
         return self
 
     # 字段
     def field(self, field):
         return self._fieldAdapter(field)
+
+    # 字段(不自动加字段引号)
+    def fieldRaw(self, field):
+        return self._fieldAdapter(field, False, False)
 
     # 不包含字段
     def withoutField(self, field):
@@ -593,23 +629,23 @@ class DbManager(object):
                 fields.append(item)
         return self._fieldAdapter(fields)
 
-    def _fieldAdapter(self, field, directReturn=False):
+    def _fieldAdapter(self, field, directReturn=False, autoQuotes=True):
         _field = []
         if type(field) == list and len(field) > 0:
             for item in field:
                 if len(item) > 0:
-                    _field.append(preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, item))
+                    _field.append(preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, item) if autoQuotes else item)
         elif type(field) == dict:
             for k, v in field.items():
                 if len(k) > 0 or len(v) > 0:
                     if len(k) > 0:
-                        _field.append('{} AS `{}`'.format(preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, k), v) if len(v) > 0 else k)
+                        _field.append('{} AS `{}`'.format(preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, k) if autoQuotes else k, v) if len(v) > 0 else k)
                     else:
                         _field.append("'' AS `{}`".format(v))
         elif type(field) == str:
             fields = field.split(',') if len(field) > 0 else ['*']
             for item in fields:
-                _field.append(preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, item.strip()))
+                _field.append(preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, item.strip()) if autoQuotes else item.strip())
         if directReturn:
             return _field
         if type(self._field) != list:
@@ -629,7 +665,7 @@ class DbManager(object):
 
     # 去重分组
     def distinct(self, field):
-        self._field = ['DISTINCT `{}`'.format(field)]
+        self._field = ['DISTINCT {}'.format(preg_replace(r'(\w+)', r'`\1`', field))]
         return self
 
     # 分组(聚合)
@@ -699,6 +735,11 @@ class DbManager(object):
         return self
 
     # 打印sql
+    def printSql(self, printSql=True):
+        self._printSql = printSql
+        return self
+
+    # 获取sql
     def fetchSql(self, fetchSql=True):
         self._fetchSql = fetchSql
         return self
@@ -741,37 +782,40 @@ class DbManager(object):
 
     # 记录数
     def count(self):
-        if len(self._field) == 0 or 'as db_tmp' not in self._field[0] or (len(self._field) == 1 and self._field[0] == '*'):
-            self._field = ['COUNT(*) as db_tmp']
+        if len(self._field) == 0 or preg_match(r'^(MAX|MIN|AVG|SUM|GROUP_CONCAT)\(', self._field[0]) is False or (len(self._field) == 1 and self._field[0] == '*'):
+            self._field = ['COUNT(*)']
         else:
             if 'DISTINCT ' in ''.join(self._field):
-                self._field = ['COUNT({}) as db_tmp'.format(''.join(self._field))]
+                self._field = ['COUNT({})'.format(''.join(self._field))]
         data = self.find()
-        return data.get('db_tmp', 0)
+        if self._fetchSql:
+            return data
+        res = list(data.values())
+        return res[0]
 
     # 最大值
     def max(self, field):
-        self._field = ['MAX({}) as db_tmp'.format(field)]
+        self._field = ['MAX({})'.format(preg_replace(r'(\w+)', r'`\1`', field))]
         return self.count()
 
     # 最小值
     def min(self, field):
-        self._field = ['MIN({}) as db_tmp'.format(field)]
+        self._field = ['MIN({})'.format(preg_replace(r'(\w+)', r'`\1`', field))]
         return self.count()
 
     # 平均值
     def avg(self, field):
-        self._field = ['AVG({}) as db_tmp'.format(field)]
+        self._field = ['AVG({})'.format(preg_replace(r'(\w+)', r'`\1`', field))]
         return self.count()
 
     # 集合值
     def sum(self, field):
-        self._field = ['SUM({}) as db_tmp'.format(field)]
+        self._field = ['SUM({})'.format(preg_replace(r'(\w+)', r'`\1`', field))]
         return self.count()
 
     # 分组连接
     def groupConcat(self, field):
-        self._field = ['GROUP_CONCAT({}) as db_tmp'.format(preg_replace(r'(\w+)', r'`\1`', field))]
+        self._field = ['GROUP_CONCAT({})'.format(preg_replace(r'(\w+)', r'`\1`', field))]
         return self.count()
 
     # 数据字段值
@@ -891,8 +935,10 @@ class DbManager(object):
             if res is not None:
                 return res
         self._whereParam = tuple(self._whereParam)
-        if self._fetchSql:
+        if self._printSql:
             print('{}\n{}\n'.format(sql, self._whereParam))
+        if self._fetchSql:
+            return '{}'.format(sql) % self._whereParam
         self.execute(sql, self._whereParam)
         res = self.cur.fetchone()
         if res is None:
@@ -911,8 +957,10 @@ class DbManager(object):
             if res is not None:
                 return res
         self._whereParam = tuple(self._whereParam)
-        if self._fetchSql:
+        if self._printSql:
             print('{}\n{}\n'.format(sql, self._whereParam))
+        if self._fetchSql:
+            return '{}'.format(sql) % self._whereParam
         self.execute(sql, self._whereParam)
         ret = self.cur.fetchall()
         if len(ret) == 0:
@@ -946,8 +994,10 @@ class DbManager(object):
                 param.append(str(v))
             self._setParam.append(param)
         sql = self.buildSql('INSERT')
-        if self._fetchSql:
+        if self._printSql:
             print('{}\n{}\n'.format(sql, self._setParam))
+        if self._fetchSql:
+            return '{}'.format(sql) % self._whereParam
         try:
             self.execute(sql, self._setParam)
             return self.cur.lastrowid
@@ -965,8 +1015,10 @@ class DbManager(object):
         else:
             self._setParam = data
         sql = self.buildSql('UPDATE')
-        if self._fetchSql:
+        if self._printSql:
             print('{}\n{}\n'.format(sql, self._setParam))
+        if self._fetchSql:
+            return '{}'.format(sql) % self._whereParam
         try:
             self.execute(sql, self._setParam)
             return self.cur.rowcount
@@ -980,8 +1032,10 @@ class DbManager(object):
         if where is not None:
             self.where(where)
         sql = self.buildSql('DELETE')
-        if self._fetchSql:
+        if self._printSql:
             print('{}\n{}\n'.format(sql, self._setParam))
+        if self._fetchSql:
+            return '{}'.format(sql) % self._whereParam
         try:
             self.execute(sql, self._setParam)
             return self.cur.rowcount

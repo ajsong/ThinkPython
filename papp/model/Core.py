@@ -1,4 +1,4 @@
-# Developed by @mario 1.0.20220817
+# Developed by @mario 1.2.20220920
 from ..tool import *
 
 
@@ -102,23 +102,35 @@ class Core(object):
     def where(self, where, param1='', param2=''):
         return self._dbManager().where(where, param1, param2)
 
+    def whereRaw(self, where):
+        return self._dbManager().whereRaw(where)
+
     def whereOr(self, where, param1='', param2=''):
         return self._dbManager().whereOr(where, param1, param2)
-
-    def whereDay(self, field, value='today'):
-        return self._dbManager().whereDay(field, value)
-
-    def whereMonth(self, field, value=''):
-        return self._dbManager().whereMonth(field, value)
 
     def whereYear(self, field, value=''):
         return self._dbManager().whereYear(field, value)
 
+    def whereMonth(self, field, value=''):
+        return self._dbManager().whereMonth(field, value)
+
+    def whereWeek(self, field, value=''):
+        return self._dbManager().whereWeek(field, value)
+
+    def whereDay(self, field, value='today'):
+        return self._dbManager().whereDay(field, value)
+
     def whereTime(self, field, operator, value=''):
         return self._dbManager().whereTime(field, operator, value)
 
+    def whereColumn(self, field1, operator, field2=None, logic='AND'):
+        return self._dbManager().whereColumn(field1, operator, field2, logic)
+
     def field(self, field):
         return self._dbManager().field(field)
+
+    def fieldRaw(self, field):
+        return self._dbManager().fieldRaw(field)
 
     def withoutField(self, field):
         return self._dbManager().withoutField(field)
@@ -149,6 +161,9 @@ class Core(object):
 
     def replace(self, replace=True):
         return self._dbManager().replace(replace)
+
+    def printSql(self, printSql=True):
+        return self._dbManager().printSql(printSql)
 
     def fetchSql(self, fetchSql=True):
         return self._dbManager().fetchSql(fetchSql)

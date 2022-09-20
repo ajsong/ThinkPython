@@ -1,4 +1,5 @@
 import json
+import ssl
 import websocket
 import time
 import threading
@@ -56,7 +57,7 @@ class WebsocketClient(object):
         self.is_running = False
         while True:
             if not self.is_running:
-                self.ws.run_forever()
+                self.ws.run_forever(sslopt={"cert_reqs": ssl.CERT_NONE})
             time.sleep(3)
 
 
