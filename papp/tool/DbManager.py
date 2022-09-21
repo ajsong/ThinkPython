@@ -821,20 +821,32 @@ class DbManager(object):
     # 数据字段值
     def value(self, field):
         self.field(field)
+        if '.' in field:
+            _field = field
+            _field = _field.split('.')
+            _field = _field[1]
+        else:
+            _field = field
         data = self.find()
         if data is None:
             return None
-        return data.get(field)
+        return data.get(_field)
 
     # 列
     def column(self, field):
         column = []
         self._field = []
         self.field(field)
+        if '.' in field:
+            _field = field
+            _field = _field.split('.')
+            _field = _field[1]
+        else:
+            _field = field
         _list = self.select()
         for item in _list:
-            column.append(item.get(field))
-        return DbList(column)
+            column.append(item.get(_field))
+        return column
 
     # 获取表字段
     def getFields(self):
