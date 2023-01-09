@@ -1,4 +1,4 @@
-# Developed by @mario 3.0.20220920
+# Developed by @mario 3.1.20230107
 import sqlite3
 import pymysql.cursors
 from dbutils.pooled_db import PooledDB
@@ -795,27 +795,39 @@ class DbManager(object):
 
     # 最大值
     def max(self, field):
-        self._field = ['MAX({})'.format(preg_replace(r'(\w+)', r'`\1`', field))]
-        return self.count()
+        self._field = ['MAX({})'.format(preg_replace(r'^(\w+)$', r'`\1`', field))]
+        res = self.count()
+        if res is None:
+            res = 0
+        return res
 
     # 最小值
     def min(self, field):
-        self._field = ['MIN({})'.format(preg_replace(r'(\w+)', r'`\1`', field))]
-        return self.count()
+        self._field = ['MIN({})'.format(preg_replace(r'^(\w+)$', r'`\1`', field))]
+        res = self.count()
+        if res is None:
+            res = 0
+        return res
 
     # 平均值
     def avg(self, field):
-        self._field = ['AVG({})'.format(preg_replace(r'(\w+)', r'`\1`', field))]
-        return self.count()
+        self._field = ['AVG({})'.format(preg_replace(r'^(\w+)$', r'`\1`', field))]
+        res = self.count()
+        if res is None:
+            res = 0
+        return res
 
     # 集合值
     def sum(self, field):
-        self._field = ['SUM({})'.format(preg_replace(r'(\w+)', r'`\1`', field))]
-        return self.count()
+        self._field = ['SUM({})'.format(preg_replace(r'^(\w+)$', r'`\1`', field))]
+        res = self.count()
+        if res is None:
+            res = 0
+        return res
 
     # 分组连接
     def groupConcat(self, field):
-        self._field = ['GROUP_CONCAT({})'.format(preg_replace(r'(\w+)', r'`\1`', field))]
+        self._field = ['GROUP_CONCAT({})'.format(preg_replace(r'^(\w+)$', r'`\1`', field))]
         return self.count()
 
     # 数据字段值
@@ -828,6 +840,8 @@ class DbManager(object):
         else:
             _field = field
         data = self.find()
+        if self._fetchSql:
+            return data
         if data is None:
             return None
         return data.get(_field)
@@ -844,6 +858,8 @@ class DbManager(object):
         else:
             _field = field
         _list = self.select()
+        if self._fetchSql:
+            return _list
         for item in _list:
             column.append(item.get(_field))
         return column
@@ -950,7 +966,7 @@ class DbManager(object):
         if self._printSql:
             print('{}\n{}\n'.format(sql, self._whereParam))
         if self._fetchSql:
-            return '{}'.format(sql) % self._whereParam
+            return ('{}'.format(sql.replace(' LIKE %s', " LIKE '%s'")) % self._whereParam).replace("%%'", "%'")
         self.execute(sql, self._whereParam)
         res = self.cur.fetchone()
         if res is None:
@@ -972,7 +988,7 @@ class DbManager(object):
         if self._printSql:
             print('{}\n{}\n'.format(sql, self._whereParam))
         if self._fetchSql:
-            return '{}'.format(sql) % self._whereParam
+            return ('{}'.format(sql.replace(' LIKE %s', " LIKE '%s'")) % self._whereParam).replace("%%'", "%'")
         self.execute(sql, self._whereParam)
         ret = self.cur.fetchall()
         if len(ret) == 0:
@@ -1009,7 +1025,7 @@ class DbManager(object):
         if self._printSql:
             print('{}\n{}\n'.format(sql, self._setParam))
         if self._fetchSql:
-            return '{}'.format(sql) % self._whereParam
+            return ('{}'.format(sql.replace(' LIKE %s', " LIKE '%s'")) % self._whereParam).replace("%%'", "%'")
         try:
             self.execute(sql, self._setParam)
             return self.cur.lastrowid
@@ -1030,7 +1046,7 @@ class DbManager(object):
         if self._printSql:
             print('{}\n{}\n'.format(sql, self._setParam))
         if self._fetchSql:
-            return '{}'.format(sql) % self._whereParam
+            return ('{}'.format(sql.replace(' LIKE %s', " LIKE '%s'")) % self._whereParam).replace("%%'", "%'")
         try:
             self.execute(sql, self._setParam)
             return self.cur.rowcount
@@ -1047,7 +1063,7 @@ class DbManager(object):
         if self._printSql:
             print('{}\n{}\n'.format(sql, self._setParam))
         if self._fetchSql:
-            return '{}'.format(sql) % self._whereParam
+            return ('{}'.format(sql.replace(' LIKE %s', " LIKE '%s'")) % self._whereParam).replace("%%'", "%'")
         try:
             self.execute(sql, self._setParam)
             return self.cur.rowcount

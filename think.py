@@ -1,4 +1,4 @@
-# Developed by @mario 1.6.20220829
+# Developed by @mario 1.7.20230109
 from papp.tool import *
 
 
@@ -13,7 +13,7 @@ def createControllerFile(param):
         makedir(path)
         file_put_contents(path + '/__init__.py')
     filepath = path + '/' + clazz + '.py'
-    if file_exist(filepath):
+    if file_exists(filepath):
         print('Controller:\033[31m' + filepath + '\033[m already exist.\n')
         return None
     method = '''from .Core import *
@@ -35,7 +35,7 @@ def createModelFile(param):
         makedir(path)
         file_put_contents(path + '/__init__.py')
     filepath = path + '/' + clazz + '.py'
-    if file_exist(filepath):
+    if file_exists(filepath):
         print('Model:\033[31m' + filepath + '\033[m already exist.\n')
         return None
     method = '''from .Core import *

@@ -1,4 +1,4 @@
-# Developed by @mario 2.3.20220819
+# Developed by @mario 2.6.20230109
 import base64
 import decimal
 import hashlib
@@ -83,8 +83,10 @@ def file_get_contents(file):
     return content
 
 
-# 写入文件内容, mode=a 追加
+# 写入文件内容, mode=a+ 追加
 def file_put_contents(file, content='', mode='w'):
+    if type(content) != str and type(content) != int and type(content) != float and type(content) != complex and type(content) != bool:
+        content = json_encode(content)
     fo = open(file, mode)
     fo.write(content)
     fo.close()
@@ -125,16 +127,18 @@ def import_excel(file, columns=None, has_header=True, sheet_name='Sheet1'):
 # columns = {'id': 'ID', 'name': '姓名', 'age': '年龄'}
 def export_excel(file, data, columns=None):
     import pandas
-    if type(data) != list:
-        data = [data]
-    writer = pandas.ExcelWriter(file)
-    pf = pandas.DataFrame(data)  # 将字典列表转换为DataFrame
+    from openpyxl import Workbook
+    from openpyxl.utils.dataframe import dataframe_to_rows
+    book = Workbook()
+    sheet = book.active
+    df = pandas.DataFrame(data)  # 将字典列表转换为DataFrame
     if type(columns) == dict:
-        pf = pf[dict(columns).keys()]
-        pf.rename(columns=columns, inplace=True)
-    pf.fillna('', inplace=True)  # 替换空单元格
-    pf.to_excel(writer, index=False)
-    writer.save()
+        df = df[dict(columns).keys()]
+        df.rename(columns=columns, inplace=True)
+    df.fillna('', inplace=True)  # 替换空单元格
+    for row in dataframe_to_rows(df, index=False, header=True):
+        sheet.append(row)
+    book.save(file)
 
 
 # 当前时间戳
@@ -284,7 +288,7 @@ def url_decode(string):
 
 
 # 文件是否存在
-def file_exist(file):
+def file_exists(file):
     return os.path.isfile(file)
 
 
@@ -319,7 +323,12 @@ def is_numeric(num):
 
 # 验证手机号
 def is_mobile(mobile):
-    return re.compile(r'^13\d{9}$|^14[5,7]\d{8}$|^15[^4]\d{8}$|^17[03678]\d{8}$|^18\d{9}$').match(str(mobile)) is not None
+    # https://zhidao.baidu.com/question/1822455991691849548.html
+    # 中国联通号码：130、131、132、145（无线上网卡）、155、156、185（iPhone5上市后开放）、186、176（4G号段）、175（2015年9月10日正式启用，暂只对北京、上海和广东投放办理）,166,146
+    # 中国移动号码：134、135、136、137、138、139、147（无线上网卡）、148、150、151、152、157、158、159、178、182、183、184、187、188、198
+    # 中国电信号码：133、153、180、181、189、177、173、149、199
+    # 中国广电号段：192
+    return re.compile(r'^1[34578]\d{9}$|^19[289]\d{8}$|^166\d{8}$').match(str(mobile)) is not None
 
 
 # 验证座机
