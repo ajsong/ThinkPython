@@ -1,8 +1,9 @@
-# Developed by @mario 1.2.20220920
+# Developed by @mario 1.3.20230112
 from ..tool import *
 
 
 class Core(object):
+    # 可在继承类中增加以下属性
     # __connection = 'mysql'  # 数据库连接
     # __name = 'table'  # 表名(不带表前缀)
     # __table = 'prefix_table'  # 完整表名
@@ -146,6 +147,9 @@ class Core(object):
 
     def order(self, field, order=''):
         return self._dbManager().order(field, order)
+
+    def orderRaw(self, order):
+        return self._dbManager().orderRaw(order)
 
     def orderField(self, field, value):
         return self._dbManager().orderField(field, value)

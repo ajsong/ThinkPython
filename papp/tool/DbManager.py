@@ -1,4 +1,4 @@
-# Developed by @mario 3.1.20230107
+# Developed by @mario 3.2.20230112
 import sqlite3
 import pymysql.cursors
 from dbutils.pooled_db import PooledDB
@@ -469,7 +469,7 @@ class DbManager(object):
             elif preg_match(r'^[\w.]+$', field):
                 field = preg_replace(r'(\w+)', r'`\1`', field)
             else:
-                field = '({})'.format(field)
+                field = '({})'.format(str(field).replace('%', '%%'))
             _where += '{}{}'.format(andOr, field)
             if len(str(param2).strip()) > 0:
                 value = param2
@@ -682,7 +682,10 @@ class DbManager(object):
     def order(self, field, order=''):
         return self._orderAdapter(field, order)
 
-    def _orderAdapter(self, field, order='', directReturn=False):
+    def orderRaw(self, order):
+        return self._orderAdapter(order, None)
+
+    def _orderAdapter(self, field, order=None, directReturn=False):
         _order = ''
         if type(field) == list:
             _order += ' ORDER BY'
@@ -696,7 +699,10 @@ class DbManager(object):
             _order = _order.rstrip(', ')
         elif type(field) == str:
             if len(field) > 0:
-                _order += ' ORDER BY ' + (preg_replace(r'(\w+)', r'`\1`', field) if len(field) > 0 else '') + (' ' + order.upper() if len(order) > 0 else '')
+                if type(order) == str:
+                    _order += ' ORDER BY ' + (preg_replace(r'(\w+)', r'`\1`', field) if len(field) > 0 else '') + (' ' + order.upper() if len(order) > 0 else '')
+                else:
+                    _order += ' ORDER BY ' + field
         if directReturn:
             return _order
         self._order = _order

@@ -1,4 +1,4 @@
-# Developed by @mario 2.6.20230109
+# Developed by @mario 2.6.20230111
 import base64
 import decimal
 import hashlib
@@ -382,6 +382,14 @@ def uncamelize(value, delimiter='_'):
     return re.sub(re.compile(r'([a-z]|\d)([A-Z])'), r'\1{}\2'.format(delimiter), value).lower()
 
 
+# 科学计数法还原数值字符串
+def enumToStr(num, scale=8):
+    if 'e' not in str(num).lower():
+        return num
+    formats = '%.{}f'.format(scale)
+    return formats % num
+
+
 # 把列表分割成小列表
 def array_chunk(array, length):
     group = zip(*(iter(array),) *length)
@@ -426,11 +434,11 @@ def write_error(content):
 # 计时器, 开始时调用 start = timing(), 结束时调用 timing(start)
 def timing(start=0):
     if start == 0:
-        print('start: {}'.format(date()))
+        print('Start: {}'.format(date()))
         return timestamp()
-    print('end: {}'.format(date()))
+    print('End: {}'.format(date()))
     between = timestamp() - start
-    print('共消耗 {:.1f} 分钟'.format(float(between/60)))
+    print('Used {:.1f} minute'.format(float(between/60)))
 
 
 # 区块链数量去精度
