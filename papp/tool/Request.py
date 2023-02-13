@@ -1,4 +1,5 @@
-# Developed by @mario 1.0.20220817
+# -*- coding: UTF-8 -*-
+# Developed by @mario 1.1.20230213
 from .Common import *
 from flask import request, render_template
 

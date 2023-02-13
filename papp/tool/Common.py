@@ -1,4 +1,5 @@
-# Developed by @mario 2.6.20230111
+# -*- coding: UTF-8 -*-
+# Developed by @mario 2.7.20230213
 import base64
 import decimal
 import hashlib

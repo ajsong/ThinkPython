@@ -1,3 +1,4 @@
+# -*- coding: UTF-8 -*-
 import ctypes
 import inspect
 import signal

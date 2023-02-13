@@ -1,4 +1,5 @@
-# Developed by @mario 3.2.20230112
+# -*- coding: UTF-8 -*-
+# Developed by @mario 3.3.20230213
 import sqlite3
 import pymysql.cursors
 from dbutils.pooled_db import PooledDB

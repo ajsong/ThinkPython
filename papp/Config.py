@@ -1,3 +1,4 @@
+# -*- coding: UTF-8 -*-
 class Config(object):
 
     # 数据库连接配置信息

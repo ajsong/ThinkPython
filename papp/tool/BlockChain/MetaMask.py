@@ -1,4 +1,5 @@
-# Developed by @mario 1.0.20230109
+# -*- coding: UTF-8 -*-
+# Developed by @mario 1.1.20230213
 from web3 import Web3
 from web3.middleware import geth_poa_middleware
 from ..Common import *

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Developed by @mario 1.8.20230130
+# Developed by @mario 1.9.20230213
 from papp.tool import *
 
 
@@ -18,7 +18,8 @@ def createControllerFile(param):
     if file_exists(filepath):
         print('Controller:\033[31m' + filepath + '\033[m already exist.\n')
         return None
-    method = '''from .Core import *
+    method = '''# -*- coding: UTF-8 -*-
+from .Core import *
 
 
 class '''+clazz+'''(Core):
@@ -40,7 +41,8 @@ def createModelFile(param):
     if file_exists(filepath):
         print('Model:\033[31m' + filepath + '\033[m already exist.\n')
         return None
-    method = '''from .Core import *
+    method = '''# -*- coding: UTF-8 -*-
+from .Core import *
 
 
 class _'''+clazz+'''(Core):
@@ -67,7 +69,8 @@ if __name__ == '__main__':
             if len(args) == 1:
                 print('Missing arguments')
                 exit(0)
-            commands = commands.strip('make:')
+            commands = commands.split(':')
+            commands = commands[1]
             if commands == 'controller':
                 arguments = args[1].split(',')
                 for arg in arguments:

@@ -1,3 +1,4 @@
+# -*- coding: UTF-8 -*-
 from argparse import ArgumentParser
 from papp.tool import *
 from papp.tool.WebSocket.WebSocketClient import WSClient
