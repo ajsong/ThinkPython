@@ -1,5 +1,5 @@
 # -*- coding: UTF-8 -*-
-# Developed by @mario 2.7.20230213
+# Developed by @mario 2.9.20230713
 import base64
 import decimal
 import hashlib
@@ -57,7 +57,12 @@ def random_float(minNum=0, maxNum=1):
 
 # 正则匹配
 def preg_match(pattern, string, flags=0):
-    return re.compile(pattern, flags).match(str(string)) is not None
+    return re.compile(pattern, flags).search(str(string))
+
+
+# 正则匹配所有
+def preg_match_all(pattern, string):
+    return re.findall(pattern, str(string))
 
 
 # 正则替换
@@ -72,6 +77,8 @@ def preg_split(pattern, string, flags=0):
 
 # 获取文件内容
 def file_get_contents(file):
+    if file[0:4] == 'http':
+        return requestUrl('get', file)
     if os.path.isfile(file) is False:
         print('The file does not exist\n' + file)
         return None
@@ -184,7 +191,7 @@ def strtotime(dateStr, timeStamp=None):
         mark = '-1 MONTH'
     elif mark == 'LAST YEAR':
         mark = '-1 YEAR'
-    if preg_match(r'^\s*([+-]?\d+)\s*\w+\s*$', mark) is False:
+    if preg_match(r'^\s*([+-]?\d+)\s*\w+\s*$', mark) is None:
         if is_date(dateStr):
             if preg_match(r'^\d{4}-\d{1,2}-\d{1,2}$', dateStr):
                 timeArray = time.strptime(dateStr, '%Y-%m-%d')
@@ -388,7 +395,7 @@ def enumToStr(num, scale=8):
     if 'e' not in str(num).lower():
         return num
     formats = '%.{}f'.format(scale)
-    return formats % num
+    return formats % float(num)
 
 
 # 把列表分割成小列表
@@ -438,8 +445,7 @@ def timing(start=0):
         print('Start: {}'.format(date()))
         return timestamp()
     print('End: {}'.format(date()))
-    between = timestamp() - start
-    print('Used {:.1f} minute'.format(float(between/60)))
+    print('Used {:.1f} minute'.format(float((timestamp() - start)/60)))
 
 
 # 区块链数量去精度
@@ -506,15 +512,16 @@ def requestUrl(method, url, data=None, returnJson=False, postJson=False, headers
     if method == 'FILE':
         # data = {'image': open('test.jpg', 'rb')}
         # data = {'file': ('test.jpg', open('test.jpg', 'rb'), 'image/jpeg'), 'dir': (None, 'pic')}
-        res = requests.post(url=url, files=data, headers=headers, timeout=10, proxies=proxies)
+        res = requests.post(url=url, files=data, headers=headers, timeout=20, proxies=proxies)
     elif method == 'POST':
-        res = requests.post(url=url, data=data, headers=headers, timeout=5, proxies=proxies)
+        res = requests.post(url=url, data=data, headers=headers, timeout=10, proxies=proxies)
     else:
-        res = requests.get(url=url, params=data, headers=headers, timeout=5, proxies=proxies)
+        res = requests.get(url=url, params=data, headers=headers, timeout=10, proxies=proxies)
     if res.status_code == 301 or res.status_code == 302:
         return requestUrl(method, url, data, returnJson, postJson, headers, proxies)
     if res is None:
         return None
+    res.encoding = res.apparent_encoding
     if returnJson:
         return json_decode(res.text)
     return res.text

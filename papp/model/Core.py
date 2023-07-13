@@ -1,5 +1,5 @@
 # -*- coding: UTF-8 -*-
-# Developed by @mario 1.4.20230213
+# Developed by @mario 1.5.20230713
 from ..tool import *
 
 
@@ -226,6 +226,9 @@ class Core(object):
 
     def delete(self, where=None):
         return self._dbManager().delete(where)
+
+    def writeAll(self, data):
+        return self._dbManager().replace().insert(data)
 
     def buildSql(self, sqlType='SELECT'):
         return self._dbManager().buildSql(sqlType)

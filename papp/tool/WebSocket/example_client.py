@@ -1,3 +1,4 @@
+# -*- coding: UTF-8 -*-
 from WebSocketClient import WSClient
 
 if __name__ == '__main__':

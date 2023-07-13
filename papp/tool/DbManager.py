@@ -1,5 +1,5 @@
 # -*- coding: UTF-8 -*-
-# Developed by @mario 3.3.20230213
+# Developed by @mario 3.5.20230713
 import sqlite3
 import pymysql.cursors
 from dbutils.pooled_db import PooledDB
@@ -608,7 +608,7 @@ class DbManager(object):
         if field2 is None:
             field2 = operator
             operator = '='
-        where = ' {} {}{}{}'.format(logic, preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, field1), operator, preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, field2))
+        where = ' {} {}{}{}'.format(logic, preg_replace(r'\b(\w+)\b', DbManager.fieldMatcher, field1), operator, preg_replace(r'\b(\w+)\b', DbManager.fieldMatcher, field2))
         self._where += ' WHERE ' + where.lstrip(' {} '.format(logic)) if len(self._where) == 0 else where
         return self
 
@@ -635,18 +635,18 @@ class DbManager(object):
         if type(field) == list and len(field) > 0:
             for item in field:
                 if len(item) > 0:
-                    _field.append(preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, item) if autoQuotes else item)
+                    _field.append(preg_replace(r'\b(\w+)\b', DbManager.fieldMatcher, item) if autoQuotes else item)
         elif type(field) == dict:
             for k, v in field.items():
                 if len(k) > 0 or len(v) > 0:
                     if len(k) > 0:
-                        _field.append('{} AS `{}`'.format(preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, k) if autoQuotes else k, v) if len(v) > 0 else k)
+                        _field.append('{} AS `{}`'.format(preg_replace(r'\b(\w+)\b', DbManager.fieldMatcher, k) if autoQuotes else k, v) if len(v) > 0 else k)
                     else:
                         _field.append("'' AS `{}`".format(v))
         elif type(field) == str:
             fields = field.split(',') if len(field) > 0 else ['*']
             for item in fields:
-                _field.append(preg_replace(r'\b([a-z_]+)\b', DbManager.fieldMatcher, item.strip()) if autoQuotes else item.strip())
+                _field.append(preg_replace(r'\b(\w+)\b', DbManager.fieldMatcher, item.strip()) if autoQuotes else item.strip())
         if directReturn:
             return _field
         if type(self._field) != list:
@@ -1032,7 +1032,10 @@ class DbManager(object):
         if self._printSql:
             print('{}\n{}\n'.format(sql, self._setParam))
         if self._fetchSql:
-            return ('{}'.format(sql.replace(' LIKE %s', " LIKE '%s'")) % self._whereParam).replace("%%'", "%'")
+            sql = sql.replace("%s", "'%s'")
+            if len(self._whereParam) > 0:
+                sql = ('{}'.format(sql.replace(' LIKE %s', " LIKE '%s'")) % self._whereParam).replace("%%'", "%'")
+            return sql % self._setParam
         try:
             self.execute(sql, self._setParam)
             return self.cur.lastrowid
@@ -1053,7 +1056,10 @@ class DbManager(object):
         if self._printSql:
             print('{}\n{}\n'.format(sql, self._setParam))
         if self._fetchSql:
-            return ('{}'.format(sql.replace(' LIKE %s', " LIKE '%s'")) % self._whereParam).replace("%%'", "%'")
+            sql = sql.replace("%s", "'%s'")
+            if len(self._whereParam) > 0:
+                sql = ('{}'.format(sql.replace(' LIKE %s', " LIKE '%s'")) % self._whereParam).replace("%%'", "%'")
+            return sql % self._setParam
         try:
             self.execute(sql, self._setParam)
             return self.cur.rowcount

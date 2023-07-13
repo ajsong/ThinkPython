@@ -1,5 +1,5 @@
 # -*- coding: UTF-8 -*-
-# Developed by @mario 1.1.20230213
+# Developed by @mario 1.2.20230413
 from web3 import Web3
 from web3.middleware import geth_poa_middleware
 from ..Common import *
@@ -7,7 +7,7 @@ from ...Config import *
 
 
 # pip install web3
-class MetaMask(object):
+class BlockChain(object):
     web3 = None
     eth = None
     contract = None
@@ -237,3 +237,12 @@ class MetaMask(object):
         res = self.web3.eth.wait_for_transaction_receipt(hashStr)
         return self.web3.toHex(res.get('transactionHash', ''))
         # return hashStr
+
+# model = BlockChain(CHAIN_HOST, CHAIN_ID, 'LOGIC', CHAIN_ADDR)
+# 读
+# res = model.contract.functions.balanceOf(address).call()
+# 写
+# froms = ethParam['upchain_address']
+# raw = model.contract.functions.setUser(('0x2A2BdcF89f6C8F359e5BFFcec54FBcB7Bc8aFA66', 1984, 'MARIO')).build_transaction(model.createGas(froms))
+# res = model.eth.send_raw_transaction(model.transactionData(raw, froms))
+# res = model.web3.toHex(res)
